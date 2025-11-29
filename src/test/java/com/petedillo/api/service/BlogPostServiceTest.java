@@ -1,6 +1,7 @@
 package com.petedillo.api.service;
 
 import com.petedillo.api.exception.ResourceNotFoundException;
+import com.petedillo.api.model.BlogMedia;
 import com.petedillo.api.model.BlogPost;
 import com.petedillo.api.repository.BlogPostRepository;
 import org.junit.jupiter.api.BeforeEach;
@@ -41,6 +42,16 @@ class BlogPostServiceTest {
         testPost.setStatus("published");
         testPost.setPublishedAt(LocalDateTime.now());
         testPost.setTags(Arrays.asList("java", "spring-boot"));
+        
+        // Add test media
+        BlogMedia coverImage = new BlogMedia();
+        coverImage.setId(1L);
+        coverImage.setBlogPost(testPost);
+        coverImage.setMediaType(BlogMedia.MediaType.EXTERNAL_IMAGE);
+        coverImage.setExternalUrl("https://example.com/cover.jpg");
+        coverImage.setDisplayOrder(0);
+        coverImage.setAltText("Cover image");
+        testPost.getMedia().add(coverImage);
     }
 
     @Test
@@ -88,6 +99,34 @@ class BlogPostServiceTest {
         assertEquals("test-post", result.getSlug());
         assertNotNull(result.getTags());
         assertEquals(2, result.getTags().size());
+        assertNotNull(result.getMedia());
+        assertEquals(1, result.getMedia().size());
+        assertEquals(0, result.getMedia().get(0).getDisplayOrder());
+        verify(blogPostRepository).findBySlug("test-post");
+    }
+
+    @Test
+    void testGetPostBySlug_PostWithMultipleMedia_ReturnsSortedMedia() {
+        // Arrange
+        BlogMedia media2 = new BlogMedia();
+        media2.setId(2L);
+        media2.setBlogPost(testPost);
+        media2.setMediaType(BlogMedia.MediaType.IMAGE);
+        media2.setFilePath("images/test.jpg");
+        media2.setDisplayOrder(1);
+        testPost.getMedia().add(media2);
+        
+        when(blogPostRepository.findBySlug("test-post"))
+            .thenReturn(Optional.of(testPost));
+
+        // Act
+        BlogPost result = blogPostService.getPostBySlug("test-post");
+
+        // Assert
+        assertNotNull(result.getMedia());
+        assertEquals(2, result.getMedia().size());
+        assertEquals(0, result.getMedia().get(0).getDisplayOrder());
+        assertEquals(1, result.getMedia().get(1).getDisplayOrder());
         verify(blogPostRepository).findBySlug("test-post");
     }
 

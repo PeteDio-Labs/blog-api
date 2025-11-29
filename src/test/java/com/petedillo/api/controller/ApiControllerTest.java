@@ -2,6 +2,7 @@ package com.petedillo.api.controller;
 
 import com.petedillo.api.config.AppConfig;
 import com.petedillo.api.exception.ResourceNotFoundException;
+import com.petedillo.api.model.BlogMedia;
 import com.petedillo.api.model.BlogPost;
 import com.petedillo.api.service.BlogPostService;
 import org.junit.jupiter.api.BeforeEach;
@@ -51,6 +52,17 @@ class ApiControllerTest {
         testPost.setStatus("published");
         testPost.setPublishedAt(LocalDateTime.now());
         testPost.setTags(Arrays.asList("java", "spring-boot"));
+        
+        // Add test media
+        BlogMedia coverImage = new BlogMedia();
+        coverImage.setId(1L);
+        coverImage.setBlogPost(testPost);
+        coverImage.setMediaType(BlogMedia.MediaType.EXTERNAL_IMAGE);
+        coverImage.setExternalUrl("https://example.com/cover.jpg");
+        coverImage.setDisplayOrder(0);
+        coverImage.setAltText("Test cover image");
+        coverImage.setCaption("Test caption");
+        testPost.getMedia().add(coverImage);
 
         // Mock AppConfig
         when(appConfig.getEnvironment()).thenReturn("dev");
@@ -119,7 +131,12 @@ class ApiControllerTest {
             .andExpect(jsonPath("$[0].slug").value("test-post"))
             .andExpect(jsonPath("$[0].tags", hasSize(2)))
             .andExpect(jsonPath("$[0].tags[0]").value("java"))
-            .andExpect(jsonPath("$[0].tags[1]").value("spring-boot"));
+            .andExpect(jsonPath("$[0].tags[1]").value("spring-boot"))
+            .andExpect(jsonPath("$[0].media", hasSize(1)))
+            .andExpect(jsonPath("$[0].media[0].type").value("EXTERNAL_IMAGE"))
+            .andExpect(jsonPath("$[0].media[0].url").value("https://example.com/cover.jpg"))
+            .andExpect(jsonPath("$[0].coverImage.url").value("https://example.com/cover.jpg"))
+            .andExpect(jsonPath("$[0].coverImage.altText").value("Test cover image"));
 
         verify(blogPostService).getAllPosts();
     }
@@ -149,7 +166,9 @@ class ApiControllerTest {
             .andExpect(jsonPath("$.title").value("Test Post"))
             .andExpect(jsonPath("$.content").value("Test content"))
             .andExpect(jsonPath("$.tags", hasSize(2)))
-            .andExpect(jsonPath("$.tags[0]").value("java"));
+            .andExpect(jsonPath("$.tags[0]").value("java"))
+            .andExpect(jsonPath("$.media", hasSize(1)))
+            .andExpect(jsonPath("$.coverImage.url").value("https://example.com/cover.jpg"));
 
         verify(blogPostService).getPostBySlug("test-post");
     }
