@@ -28,7 +28,11 @@ public class MediaController {
     public ResponseEntity<Resource> serveFile(@PathVariable String filename) {
         try {
             Path filePath = fileStorageService.loadFile(filename);
-            Resource resource = new UrlResource(filePath.toUri());
+            java.net.URI uri = filePath.toUri();
+            if (uri == null) {
+                return ResponseEntity.notFound().build();
+            }
+            Resource resource = new UrlResource(uri);
 
             if (!resource.exists() || !resource.isReadable()) {
                 return ResponseEntity.notFound().build();
