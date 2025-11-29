@@ -20,19 +20,19 @@ import java.util.Set;
 public class BlogPostService {
 
     private final BlogPostRepository blogPostRepository;
+    private final BlogTagRepository blogTagRepository;
+    private final BlogMediaRepository blogMediaRepository;
+    private final FileStorageService fileStorageService;
 
     @Autowired
-    private BlogTagRepository blogTagRepository;
-
-    @Autowired
-    private BlogMediaRepository blogMediaRepository;
-
-    @Autowired
-    private FileStorageService fileStorageService;
-
-    @Autowired
-    public BlogPostService(BlogPostRepository blogPostRepository) {
+    public BlogPostService(BlogPostRepository blogPostRepository,
+                           BlogTagRepository blogTagRepository,
+                           BlogMediaRepository blogMediaRepository,
+                           FileStorageService fileStorageService) {
         this.blogPostRepository = blogPostRepository;
+        this.blogTagRepository = blogTagRepository;
+        this.blogMediaRepository = blogMediaRepository;
+        this.fileStorageService = fileStorageService;
     }
 
     public List<BlogPost> getAllPosts() {
