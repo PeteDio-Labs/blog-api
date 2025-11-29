@@ -7,6 +7,8 @@ import com.petedillo.api.model.BlogMedia;
 import com.petedillo.api.model.BlogPost;
 import com.petedillo.api.repository.BlogMediaRepository;
 import com.petedillo.api.repository.BlogPostRepository;
+import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -32,7 +34,9 @@ public class MediaService {
      * Upload a media file and associate it with a blog post
      */
     @Transactional
-    public MediaDTO uploadMedia(MultipartFile file, Long postId, String altText, String caption) {
+    @NotNull
+    public MediaDTO uploadMedia(@NotNull MultipartFile file, @NotNull Long postId,
+                                @Nullable String altText, @Nullable String caption) {
         try {
             // Validate post exists
             BlogPost blogPost = blogPostRepository.findById(postId)
@@ -46,7 +50,10 @@ public class MediaService {
             media.setBlogPost(blogPost);
             media.setMediaType(BlogMedia.MediaType.IMAGE);
             media.setFilePath(filePath);
-            media.setAltText(altText != null ? altText : file.getOriginalFilename());
+
+            // Use altText if provided, otherwise use original filename (with null check)
+            String originalFilename = file.getOriginalFilename();
+            media.setAltText(altText != null ? altText : (originalFilename != null ? originalFilename : "uploaded-image"));
             media.setCaption(caption);
             media.setFileSize(file.getSize());
             media.setMimeType(file.getContentType());
@@ -56,7 +63,11 @@ public class MediaService {
             media.setDisplayOrder((int) existingCount);
 
             BlogMedia savedMedia = blogMediaRepository.save(media);
-            return MediaDTO.fromEntity(savedMedia);
+            MediaDTO result = MediaDTO.fromEntity(savedMedia);
+            if (result == null) {
+                throw new MediaUploadException("Failed to create media DTO");
+            }
+            return result;
 
         } catch (IOException e) {
             throw new MediaUploadException("Failed to upload media file", e);
@@ -87,14 +98,17 @@ public class MediaService {
      * Delete a media file (removes both file and database entry)
      */
     @Transactional
-    public void deleteMedia(Long mediaId) {
+    public void deleteMedia(@NotNull Long mediaId) {
         BlogMedia media = blogMediaRepository.findById(mediaId)
             .orElseThrow(() -> new ResourceNotFoundException("Media not found: " + mediaId));
 
         // Delete physical file if it's a local file
-        if (media.isLocalFile()) {
-            String filename = media.getFilePath().substring(media.getFilePath().lastIndexOf('/') + 1);
-            fileStorageService.deleteFile(filename);
+        if (media.isLocalFile() && media.getFilePath() != null) {
+            int lastSlashIndex = media.getFilePath().lastIndexOf('/');
+            if (lastSlashIndex >= 0 && lastSlashIndex < media.getFilePath().length() - 1) {
+                String filename = media.getFilePath().substring(lastSlashIndex + 1);
+                fileStorageService.deleteFile(filename);
+            }
         }
 
         // Delete from database

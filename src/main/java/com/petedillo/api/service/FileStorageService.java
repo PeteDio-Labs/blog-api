@@ -1,6 +1,7 @@
 package com.petedillo.api.service;
 
 import com.petedillo.api.exception.MediaUploadException;
+import org.jetbrains.annotations.NotNull;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
@@ -35,7 +36,8 @@ public class FileStorageService {
     /**
      * Store uploaded file with UUID prefix to prevent name conflicts
      */
-    public String storeFile(MultipartFile file) throws IOException {
+    @NotNull
+    public String storeFile(@NotNull MultipartFile file) throws IOException {
         // Validate file
         if (file.isEmpty()) {
             throw new MediaUploadException("Cannot store empty file");
@@ -74,14 +76,15 @@ public class FileStorageService {
     /**
      * Load file as resource for serving
      */
-    public Path loadFile(String filename) {
+    @NotNull
+    public Path loadFile(@NotNull String filename) {
         return fileStorageLocation.resolve(filename).normalize();
     }
 
     /**
      * Delete file from storage
      */
-    public boolean deleteFile(String filename) {
+    public boolean deleteFile(@NotNull String filename) {
         try {
             Path filePath = loadFile(filename);
             return Files.deleteIfExists(filePath);
