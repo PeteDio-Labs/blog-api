@@ -37,13 +37,14 @@ public class FileStorageService {
 
         // Generate unique filename
         String originalFilename = StringUtils.cleanPath(file.getOriginalFilename());
+
+        // Validate original filename for path traversal attacks
+        if (originalFilename.contains("..")) {
+            throw new IllegalArgumentException("Filename contains invalid path sequence: " + originalFilename);
+        }
+
         String fileExtension = getFileExtension(originalFilename);
         String filename = UUID.randomUUID().toString() + "-" + System.currentTimeMillis() + fileExtension;
-
-        // Validate filename
-        if (filename.contains("..")) {
-            throw new IllegalArgumentException("Filename contains invalid path sequence: " + filename);
-        }
 
         // Store file
         Path targetLocation = this.fileStorageLocation.resolve(filename);

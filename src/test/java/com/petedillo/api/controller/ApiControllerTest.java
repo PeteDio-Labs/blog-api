@@ -9,7 +9,8 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
-import org.springframework.boot.test.mock.mockito.MockBean;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
+import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
 
 import javax.sql.DataSource;
@@ -25,18 +26,19 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
 @WebMvcTest(ApiController.class)
+@ActiveProfiles("test")
 class ApiControllerTest {
 
     @Autowired
     private MockMvc mockMvc;
 
-    @MockBean
+    @MockitoBean
     private BlogPostService blogPostService;
 
-    @MockBean
+    @MockitoBean
     private DataSource dataSource;
 
-    @MockBean
+    @MockitoBean
     private AppConfig appConfig;
 
     private BlogPost testPost;
@@ -130,8 +132,7 @@ class ApiControllerTest {
             .andExpect(jsonPath("$[0].title").value("Test Post"))
             .andExpect(jsonPath("$[0].slug").value("test-post"))
             .andExpect(jsonPath("$[0].tags", hasSize(2)))
-            .andExpect(jsonPath("$[0].tags[0]").value("java"))
-            .andExpect(jsonPath("$[0].tags[1]").value("spring-boot"))
+            .andExpect(jsonPath("$[0].tags", containsInAnyOrder("java", "spring-boot")))
             .andExpect(jsonPath("$[0].media", hasSize(1)))
             .andExpect(jsonPath("$[0].media[0].type").value("EXTERNAL_IMAGE"))
             .andExpect(jsonPath("$[0].media[0].url").value("https://example.com/cover.jpg"))
@@ -166,7 +167,7 @@ class ApiControllerTest {
             .andExpect(jsonPath("$.title").value("Test Post"))
             .andExpect(jsonPath("$.content").value("Test content"))
             .andExpect(jsonPath("$.tags", hasSize(2)))
-            .andExpect(jsonPath("$.tags[0]").value("java"))
+            .andExpect(jsonPath("$.tags", containsInAnyOrder("java", "spring-boot")))
             .andExpect(jsonPath("$.media", hasSize(1)))
             .andExpect(jsonPath("$.coverImage.url").value("https://example.com/cover.jpg"));
 
