@@ -39,6 +39,10 @@ public class BlogPostService {
         return blogPostRepository.findAll();
     }
 
+    public BlogPost getPostById(Long id) {
+        return blogPostRepository.findById(id).orElse(null);
+    }
+
     public BlogPost getPostBySlug(String slug) {
         return blogPostRepository.findBySlug(slug)
             .orElseThrow(() -> new ResourceNotFoundException("Post not found with slug: " + slug));
