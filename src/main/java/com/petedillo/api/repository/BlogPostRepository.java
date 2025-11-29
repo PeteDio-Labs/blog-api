@@ -17,4 +17,14 @@ public interface BlogPostRepository extends JpaRepository<BlogPost, Long> {
 
     @Query("SELECT p FROM BlogPost p WHERE p.title ILIKE %:searchTerm% OR p.slug ILIKE %:searchTerm%")
     List<BlogPost> searchByTitleOrSlug(@Param("searchTerm") String searchTerm);
+
+    /**
+     * Find posts by tag name (case-insensitive)
+     */
+    List<BlogPost> findByBlogTags_TagNameIgnoreCase(String tagName);
+
+    /**
+     * Find all posts ordered by published date descending
+     */
+    List<BlogPost> findAllByOrderByPublishedAtDesc();
 }
