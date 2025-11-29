@@ -3,6 +3,7 @@ package com.petedillo.api.controller;
 import com.petedillo.api.dto.MediaDTO;
 import com.petedillo.api.service.BlogPostService;
 import com.petedillo.api.service.MediaService;
+import org.jetbrains.annotations.Nullable;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
@@ -31,13 +32,20 @@ public class AdminApiController {
     @PostMapping("/media/upload")
     public ResponseEntity<Map<String, Object>> uploadMedia(
             @RequestParam("file") MultipartFile file,
-            @RequestParam(required = false) Long postId,
-            @RequestParam(required = false) String altText,
-            @RequestParam(required = false) String caption
+            @RequestParam(required = false) @Nullable Long postId,
+            @RequestParam(required = false) @Nullable String altText,
+            @RequestParam(required = false) @Nullable String caption
     ) {
         try {
+            if (postId == null) {
+                Map<String, Object> response = new HashMap<>();
+                response.put("success", false);
+                response.put("error", "Post ID is required");
+                return ResponseEntity.badRequest().body(response);
+            }
+
             MediaDTO mediaDTO = mediaService.uploadMedia(file, postId, altText, caption);
-            
+
             Map<String, Object> response = new HashMap<>();
             response.put("success", true);
             response.put("media", mediaDTO);
@@ -78,8 +86,15 @@ public class AdminApiController {
     ) {
         try {
             List<Long> mediaIds = payload.get("mediaIds");
+            if (mediaIds == null) {
+                Map<String, Object> response = new HashMap<>();
+                response.put("success", false);
+                response.put("error", "mediaIds is required");
+                return ResponseEntity.badRequest().body(response);
+            }
+
             mediaService.reorderMedia(postId, mediaIds);
-            
+
             Map<String, Object> response = new HashMap<>();
             response.put("success", true);
             response.put("message", "Media reordered successfully");
@@ -101,8 +116,15 @@ public class AdminApiController {
     ) {
         try {
             String altText = payload.get("altText");
+            if (altText == null) {
+                Map<String, Object> response = new HashMap<>();
+                response.put("success", false);
+                response.put("error", "altText is required");
+                return ResponseEntity.badRequest().body(response);
+            }
+
             MediaDTO updatedMedia = mediaService.updateMetadata((long) id, altText, null);
-            
+
             Map<String, Object> response = new HashMap<>();
             response.put("success", true);
             response.put("media", updatedMedia);

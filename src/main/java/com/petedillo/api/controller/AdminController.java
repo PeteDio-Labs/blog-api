@@ -4,6 +4,7 @@ import com.petedillo.api.dto.BlogPostDTO;
 import com.petedillo.api.model.BlogPost;
 import com.petedillo.api.service.BlogPostService;
 import com.petedillo.api.service.MediaService;
+import org.jetbrains.annotations.Nullable;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.*;
@@ -28,15 +29,15 @@ public class AdminController {
     
     @GetMapping("/login")
     public String login(
-            @RequestParam(required = false) String error,
-            @RequestParam(required = false) String logout,
+            @RequestParam(required = false) @Nullable String error,
+            @RequestParam(required = false) @Nullable String logout,
             Model model
     ) {
         if (error != null) {
-            model.addAttribute("error", true);
+            model.addAttribute("error", "Invalid username or password");
         }
         if (logout != null) {
-            model.addAttribute("logout", true);
+            model.addAttribute("message", "You have been logged out successfully");
         }
         return "admin/login";
     }
@@ -45,30 +46,30 @@ public class AdminController {
     
     @GetMapping("/posts")
     public String listPosts(
-            @RequestParam(required = false) String search,
-            @RequestParam(required = false) String tag,
+            @RequestParam(required = false) @Nullable String search,
+            @RequestParam(required = false) @Nullable String tag,
             Model model
     ) {
         List<BlogPost> posts;
-        
+
         if (tag != null && !tag.isEmpty()) {
             posts = blogPostService.getPostsByTag(tag);
         } else if (search != null && !search.isEmpty()) {
             // Simple search implementation - filter by title/content containing search term
             posts = blogPostService.getAllPostsSorted().stream()
-                    .filter(p -> p.getTitle().toLowerCase().contains(search.toLowerCase()) ||
+                    .filter(p -> p.getTitle() != null && p.getTitle().toLowerCase().contains(search.toLowerCase()) ||
                                  (p.getContent() != null && p.getContent().toLowerCase().contains(search.toLowerCase())))
                     .collect(Collectors.toList());
         } else {
             posts = blogPostService.getAllPostsSorted();
         }
-        
+
         model.addAttribute("posts", posts);
         model.addAttribute("allTags", blogPostService.getAllTags());
         model.addAttribute("search", search);
         model.addAttribute("tag", tag);
-        
-        return "admin/posts";
+
+        return "admin/posts/list";
     }
 
     // === New Post Form ===
@@ -77,7 +78,7 @@ public class AdminController {
     public String newPostForm(Model model) {
         model.addAttribute("post", new BlogPost());
         model.addAttribute("allTags", blogPostService.getAllTags());
-        return "admin/post-form";
+        return "admin/posts/form";
     }
 
     // === Edit Post Form ===
@@ -92,7 +93,7 @@ public class AdminController {
         
         model.addAttribute("post", post);
         model.addAttribute("allTags", blogPostService.getAllTags());
-        return "admin/post-form";
+        return "admin/posts/form";
     }
 
     // === Create Post ===
@@ -162,6 +163,6 @@ public class AdminController {
     @GetMapping("/media")
     public String mediaManager(Model model) {
         model.addAttribute("allMedia", mediaService.getAllMedia());
-        return "admin/media";
+        return "admin/media/manager";
     }
 }
