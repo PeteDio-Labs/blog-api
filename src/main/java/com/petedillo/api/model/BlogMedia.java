@@ -20,7 +20,7 @@ public class BlogMedia {
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "blog_post_id", nullable = false)
-    private Post blogPost;
+    private BlogPost blogPost;
 
     @Enumerated(EnumType.STRING)
     @Column(name = "media_type", length = 20, nullable = false)

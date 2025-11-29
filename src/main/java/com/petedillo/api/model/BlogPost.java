@@ -2,13 +2,17 @@ package com.petedillo.api.model;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import com.petedillo.api.dto.CoverImageDTO;
+import com.petedillo.api.dto.MediaDTO;
 import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.Setter;
 
 import java.time.LocalDateTime;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 @Setter
@@ -44,7 +48,7 @@ public class BlogPost {
 
     @JsonIgnore
     @OneToMany(mappedBy = "blogPost", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.EAGER)
-    private List<BlogTag> blogTags = new ArrayList<>();
+    private Set<BlogTag> blogTags = new HashSet<>();
 
     @OneToMany(mappedBy = "blogPost", cascade = CascadeType.ALL, orphanRemoval = true)
     @OrderBy("displayOrder ASC")
@@ -60,7 +64,7 @@ public class BlogPost {
 
     // Convenience method to set tags from List<String>
     public void setTags(List<String> tags) {
-        this.blogTags.clear();
+        this.blogTags = new HashSet<>();
         if (tags != null) {
             for (String tag : tags) {
                 BlogTag blogTag = new BlogTag();

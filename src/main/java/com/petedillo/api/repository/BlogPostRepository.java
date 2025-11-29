@@ -12,7 +12,7 @@ import java.util.Optional;
 @Repository
 public interface BlogPostRepository extends JpaRepository<BlogPost, Long> {
 
-    @Query("SELECT DISTINCT p FROM BlogPost p LEFT JOIN FETCH p.blogTags LEFT JOIN FETCH p.media WHERE p.slug = :slug")
+    @Query("SELECT DISTINCT p FROM BlogPost p LEFT JOIN FETCH p.blogTags LEFT JOIN FETCH p.media m WHERE p.slug = :slug ORDER BY m.displayOrder ASC")
     Optional<BlogPost> findBySlug(@Param("slug") String slug);
 
     @Query("SELECT p FROM BlogPost p WHERE p.title ILIKE %:searchTerm% OR p.slug ILIKE %:searchTerm%")
