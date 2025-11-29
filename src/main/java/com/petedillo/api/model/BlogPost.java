@@ -7,6 +7,8 @@ import com.petedillo.api.dto.MediaDTO;
 import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.Setter;
+import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 
 import java.time.LocalDateTime;
 import java.util.ArrayList;
@@ -23,12 +25,22 @@ public class BlogPost {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @Nullable
     private Long id;
 
+    @NotNull
     private String title;
+
+    @NotNull
     private String slug;
+
+    @NotNull
     private String content;
+
+    @Nullable
     private String excerpt;
+
+    @NotNull
     private String status;
 
     @Column(name = "is_featured")
@@ -38,12 +50,15 @@ public class BlogPost {
     private int viewCount;
 
     @Column(name = "created_at")
+    @Nullable
     private LocalDateTime createdAt;
 
     @Column(name = "updated_at")
+    @Nullable
     private LocalDateTime updatedAt;
 
     @Column(name = "published_at")
+    @Nullable
     private LocalDateTime publishedAt;
 
     @JsonIgnore
@@ -63,14 +78,16 @@ public class BlogPost {
     }
 
     // Convenience method to set tags from List<String>
-    public void setTags(List<String> tags) {
+    public void setTags(@Nullable List<String> tags) {
         this.blogTags = new HashSet<>();
         if (tags != null) {
             for (String tag : tags) {
-                BlogTag blogTag = new BlogTag();
-                blogTag.setTagName(tag.toLowerCase());
-                blogTag.setBlogPost(this);
-                this.blogTags.add(blogTag);
+                if (tag != null) {
+                    BlogTag blogTag = new BlogTag();
+                    blogTag.setTagName(tag.toLowerCase());
+                    blogTag.setBlogPost(this);
+                    this.blogTags.add(blogTag);
+                }
             }
         }
     }
@@ -85,6 +102,7 @@ public class BlogPost {
 
     // Get cover image (first media with displayOrder = 0)
     @JsonProperty("coverImage")
+    @Nullable
     public CoverImageDTO getCoverImage() {
         return media.stream()
                 .filter(m -> m.getDisplayOrder() != null && m.getDisplayOrder() == 0)
