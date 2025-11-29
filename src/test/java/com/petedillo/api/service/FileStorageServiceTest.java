@@ -1,5 +1,6 @@
 package com.petedillo.api.service;
 
+import com.petedillo.api.exception.MediaUploadException;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
@@ -56,7 +57,7 @@ class FileStorageServiceTest {
         );
 
         // Act & Assert
-        assertThrows(IllegalArgumentException.class, () -> {
+        assertThrows(MediaUploadException.class, () -> {
             fileStorageService.storeFile(emptyFile);
         });
     }
@@ -72,9 +73,80 @@ class FileStorageServiceTest {
         );
 
         // Act & Assert
-        assertThrows(IllegalArgumentException.class, () -> {
+        assertThrows(MediaUploadException.class, () -> {
             fileStorageService.storeFile(maliciousFile);
         });
+    }
+
+    @Test
+    void testStoreFile_InvalidFileType_ThrowsException() {
+        // Arrange
+        MultipartFile txtFile = new MockMultipartFile(
+            "test.txt",
+            "test.txt",
+            "text/plain",
+            "text content".getBytes()
+        );
+
+        // Act & Assert
+        MediaUploadException exception = assertThrows(MediaUploadException.class, () -> {
+            fileStorageService.storeFile(txtFile);
+        });
+        assertTrue(exception.getMessage().contains("File type not allowed"));
+    }
+
+    @Test
+    void testStoreFile_ExecutableFile_ThrowsException() {
+        // Arrange
+        MultipartFile exeFile = new MockMultipartFile(
+            "malware.exe",
+            "malware.exe",
+            "application/x-msdownload",
+            "malicious".getBytes()
+        );
+
+        // Act & Assert
+        assertThrows(MediaUploadException.class, () -> {
+            fileStorageService.storeFile(exeFile);
+        });
+    }
+
+    @Test
+    void testStoreFile_AllowedTypes_StoreSuccessfully() throws IOException {
+        // Test all allowed file types
+        String[] allowedExtensions = {".jpg", ".jpeg", ".png", ".webp", ".gif"};
+        
+        for (String ext : allowedExtensions) {
+            MultipartFile file = new MockMultipartFile(
+                "test" + ext,
+                "test" + ext,
+                "image/" + ext.substring(1),
+                "test content".getBytes()
+            );
+
+            String storedPath = fileStorageService.storeFile(file);
+            
+            assertNotNull(storedPath);
+            assertTrue(storedPath.toLowerCase().endsWith(ext) || storedPath.toLowerCase().endsWith(".jpeg"));
+        }
+    }
+
+    @Test
+    void testStoreFile_CaseInsensitiveExtension_StoreSuccessfully() throws IOException {
+        // Arrange
+        MultipartFile file = new MockMultipartFile(
+            "test.JPG",
+            "test.JPG",
+            "image/jpeg",
+            "test content".getBytes()
+        );
+
+        // Act
+        String storedPath = fileStorageService.storeFile(file);
+
+        // Assert
+        assertNotNull(storedPath);
+        assertTrue(storedPath.startsWith("images/"));
     }
 
     @Test
@@ -142,24 +214,5 @@ class FileStorageServiceTest {
 
         // Assert
         assertTrue(storedPath.endsWith(".png"));
-    }
-
-    @Test
-    void testStoreFile_FileWithoutExtension_StoresWithoutExtension() throws IOException {
-        // Arrange
-        MultipartFile noExtFile = new MockMultipartFile(
-            "testfile",
-            "testfile",
-            "application/octet-stream",
-            "content".getBytes()
-        );
-
-        // Act
-        String storedPath = fileStorageService.storeFile(noExtFile);
-
-        // Assert
-        assertNotNull(storedPath);
-        assertTrue(storedPath.startsWith("images/"));
-        assertFalse(storedPath.contains(".")); // No extension
     }
 }
