@@ -1,5 +1,6 @@
 package com.petedillo.api.service;
 
+import com.petedillo.api.exception.MediaUploadException;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
@@ -10,10 +11,15 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.nio.file.StandardCopyOption;
+import java.util.Set;
 import java.util.UUID;
 
 @Service
 public class FileStorageService {
+
+    private static final Set<String> ALLOWED_FILE_TYPES = Set.of(
+        ".jpg", ".jpeg", ".png", ".webp", ".gif"
+    );
 
     private final Path fileStorageLocation;
 
@@ -32,18 +38,29 @@ public class FileStorageService {
     public String storeFile(MultipartFile file) throws IOException {
         // Validate file
         if (file.isEmpty()) {
-            throw new IllegalArgumentException("Cannot store empty file");
+            throw new MediaUploadException("Cannot store empty file");
         }
 
-        // Generate unique filename
-        String originalFilename = StringUtils.cleanPath(file.getOriginalFilename());
+        // Get original filename
+        String originalFilename = file.getOriginalFilename();
+        if (originalFilename == null || originalFilename.isEmpty()) {
+            throw new MediaUploadException("Invalid filename");
+        }
+
+        originalFilename = StringUtils.cleanPath(originalFilename);
 
         // Validate original filename for path traversal attacks
         if (originalFilename.contains("..")) {
-            throw new IllegalArgumentException("Filename contains invalid path sequence: " + originalFilename);
+            throw new MediaUploadException("Filename contains invalid path sequence: " + originalFilename);
         }
 
-        String fileExtension = getFileExtension(originalFilename);
+        String fileExtension = getFileExtension(originalFilename).toLowerCase();
+        
+        // Validate file type
+        if (!ALLOWED_FILE_TYPES.contains(fileExtension)) {
+            throw new MediaUploadException("File type not allowed. Supported types: jpg, jpeg, png, webp, gif");
+        }
+
         String filename = UUID.randomUUID().toString() + "-" + System.currentTimeMillis() + fileExtension;
 
         // Store file
