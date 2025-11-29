@@ -1,5 +1,6 @@
 package com.petedillo.api.controller;
 
+import com.petedillo.api.config.AppConfig;
 import com.petedillo.api.model.BlogPost;
 import com.petedillo.api.model.BlogTag;
 import com.petedillo.api.service.BlogPostService;
@@ -36,6 +37,9 @@ class AdminControllerTest {
 
     @MockitoBean
     private MediaService mediaService;
+
+    @MockitoBean
+    private AppConfig appConfig;
 
     private BlogPost testPost;
     private BlogTag testTag;

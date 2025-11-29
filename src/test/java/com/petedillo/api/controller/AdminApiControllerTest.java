@@ -1,5 +1,6 @@
 package com.petedillo.api.controller;
 
+import com.petedillo.api.config.AppConfig;
 import com.petedillo.api.dto.MediaDTO;
 import com.petedillo.api.service.BlogPostService;
 import com.petedillo.api.service.MediaService;
@@ -18,6 +19,7 @@ import java.util.List;
 
 import static org.hamcrest.Matchers.*;
 import static org.mockito.Mockito.*;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
@@ -33,6 +35,9 @@ class AdminApiControllerTest {
 
     @MockitoBean
     private BlogPostService blogPostService;
+
+    @MockitoBean
+    private AppConfig appConfig;
 
     // === Upload Media Tests ===
 
