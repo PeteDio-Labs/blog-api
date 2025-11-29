@@ -95,6 +95,13 @@ public class MediaService {
     }
 
     /**
+     * Get all media entities (for admin UI with full post details)
+     */
+    public List<BlogMedia> getAllMediaEntities() {
+        return blogMediaRepository.findAllByOrderByCreatedAtDesc();
+    }
+
+    /**
      * Delete a media file (removes both file and database entry)
      */
     @Transactional

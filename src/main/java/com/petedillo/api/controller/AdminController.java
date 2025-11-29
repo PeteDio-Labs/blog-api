@@ -162,7 +162,8 @@ public class AdminController {
     
     @GetMapping("/media")
     public String mediaManager(Model model) {
-        model.addAttribute("allMedia", mediaService.getAllMedia());
+        model.addAttribute("media", mediaService.getAllMediaEntities());
+        model.addAttribute("pageTitle", "Media Manager");
         return "admin/media/manager";
     }
 }

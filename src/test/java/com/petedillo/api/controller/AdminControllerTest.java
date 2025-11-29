@@ -327,7 +327,7 @@ class AdminControllerTest {
     @Test
     @WithMockUser(username = "admin", roles = {"ADMIN"})
     void testMediaManager_RendersWithAllMedia() throws Exception {
-        when(mediaService.getAllMedia()).thenReturn(Collections.emptyList());
+        when(mediaService.getAllMediaEntities()).thenReturn(Collections.emptyList());
 
         mockMvc.perform(get("/manage/media"))
             .andExpect(status().isOk())
@@ -335,7 +335,7 @@ class AdminControllerTest {
             .andExpect(model().attributeExists("media"))
             .andExpect(model().attribute("pageTitle", "Media Manager"));
 
-        verify(mediaService).getAllMedia();
+        verify(mediaService).getAllMediaEntities();
     }
 
     // === Security Tests ===
