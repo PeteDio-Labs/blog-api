@@ -67,8 +67,8 @@
                     <div class="media-card-overlay">
                         <button type="button"
                                 class="btn-icon btn-view"
-                                th:onclick="'viewImage(\\'' + ${item.url} + '\\', \\'' + ${item.altText ?: ''} + '\\')'"
-                                onclick="event.preventDefault()">
+                                   th:attr="data-url=${item.url},data-alt=${item.altText ?: ''}"
+                                   onclick="event.preventDefault(); viewImage(this.dataset.url, this.dataset.alt)">
                             👁️ View
                         </button>
                         <button type="button"
@@ -151,8 +151,8 @@
                             <div class="action-buttons">
                                 <button type="button"
                                         class="btn-icon"
-                                        th:onclick="'viewImage(\\'' + ${item.url} + '\\', \\'' + ${item.altText ?: ''} + '\\')'"
-                                        onclick="event.preventDefault()">
+                                               th:attr="data-url=${item.url},data-alt=${item.altText ?: ''}"
+                                               onclick="event.preventDefault(); viewImage(this.dataset.url, this.dataset.alt)">
                                     👁️
                                 </button>
                                 <button type="button"
@@ -466,11 +466,13 @@
                 cursor: pointer;
                 transition: all 0.3s ease;
                 font-size: 1.25rem;
+                color: var(--text-primary);
             }
 
             .btn-view:hover {
                 background: rgba(0, 255, 255, 0.2);
                 border-color: var(--neon-cyan);
+                color: var(--neon-cyan);
             }
 
             .btn-delete {
@@ -480,6 +482,7 @@
             .btn-delete:hover {
                 background: rgba(255, 50, 50, 0.2);
                 border-color: var(--error);
+                color: var(--error);
             }
 
             /* Modal */
@@ -641,7 +644,7 @@
                 modal.classList.remove('active');
             }
 
-            function filterMedia(query) {
+            const filterMedia = adminUtils.debounce(function(query) {
                 const cards = document.querySelectorAll('.media-card, .media-row');
                 const lowerQuery = query.toLowerCase();
 
@@ -652,12 +655,10 @@
                     const matches = postTitle.includes(lowerQuery) || altText.includes(lowerQuery);
                     card.style.display = matches ? '' : 'none';
                 });
-            }
+            }, 200);
 
             function deleteMedia(button) {
-                if (!confirm('Are you sure you want to delete this media file?')) {
-                    return;
-                }
+                if (!adminUtils.confirmDelete('this media file', () => {})) { return; }
 
                 const mediaId = button.dataset.mediaId;
 
@@ -678,6 +679,7 @@
                             badge.textContent = currentCount - 1;
                         });
 
+                        adminUtils.showFlash('Media deleted', 'success');
                         // Check if empty and reload if necessary
                         const gridView = document.getElementById('gridView');
                         const listView = document.getElementById('listView');
@@ -686,12 +688,12 @@
                             location.reload();
                         }
                     } else {
-                        alert('Failed to delete media: ' + data.error);
+                        adminUtils.showFlash('Failed to delete media: ' + (data.error || 'Unknown error'), 'error');
                     }
                 })
                 .catch(error => {
                     console.error('Error:', error);
-                    alert('An error occurred while deleting the media');
+                    adminUtils.showFlash('An error occurred while deleting the media', 'error');
                 });
             }
 
@@ -700,6 +702,14 @@
                 if (e.key === 'Escape') {
                     closeModal();
                 }
+            });
+        </script>
+        <script th:src="@{/admin/js/media-upload.js}"></script>
+        <script th:src="@{/admin/js/media-reorder.js}"></script>
+        <script>
+            document.addEventListener('DOMContentLoaded', function() {
+                // Media Manager is global; no postId context here
+                if (window.initMediaReorder) { window.initMediaReorder(); }
             });
         </script>
     </th:block>

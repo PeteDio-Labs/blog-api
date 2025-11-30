@@ -43,10 +43,10 @@
                 <select id="tagFilter" class="tag-select"
                         onchange="window.location.href = this.value ? '/manage/posts?tag=' + this.value : '/manage/posts'">
                     <option value="">All Tags</option>
-                    <option th:each="tagObj : ${allTags}"
-                            th:value="${tagObj.tagName}"
-                            th:text="${tagObj.tagName}"
-                            th:selected="${tag == tagObj.tagName}">
+                    <option th:each="tagName : ${allTags}"
+                            th:value="${tagName}"
+                            th:text="${tagName}"
+                            th:selected="${tag == tagName}">
                         Tag Name
                     </option>
                 </select>
