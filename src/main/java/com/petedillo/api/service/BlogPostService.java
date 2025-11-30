@@ -17,6 +17,7 @@ import java.time.LocalDateTime;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
+import java.util.stream.Collectors;
 
 @Service
 public class BlogPostService {
@@ -68,9 +69,11 @@ public class BlogPostService {
                                @Nullable String status, @Nullable Set<String> tagNames) {
         BlogPost post = new BlogPost();
         post.setTitle(title);
+        post.setSlug(generateSlug(title));
         post.setContent(content);
         post.setExcerpt(excerpt);
         post.setStatus(status != null ? status : "draft");
+        post.setCreatedAt(LocalDateTime.now());
         post.setPublishedAt(LocalDateTime.now());
         post.setUpdatedAt(LocalDateTime.now());
 
@@ -84,23 +87,12 @@ public class BlogPostService {
                 if (tagName != null && !tagName.trim().isEmpty()) {
                     String normalizedTag = tagName.trim().toLowerCase();
 
-                    BlogTag tag = blogTagRepository.findByTagNameIgnoreCase(normalizedTag)
-                        .orElseGet(() -> {
-                            BlogTag newTag = new BlogTag();
-                            newTag.setTagName(normalizedTag);
-                            newTag.setBlogPost(savedPost);
-                            return blogTagRepository.save(newTag);
-                        });
-
-                    // If existing tag, update its association
-                    if (tag.getId() != null && tag.getBlogPost() != null &&
-                        tag.getBlogPost().getId() != null && savedPost.getId() != null &&
-                        !tag.getBlogPost().getId().equals(savedPost.getId())) {
-                        tag.setBlogPost(savedPost);
-                        blogTagRepository.save(tag);
-                    }
-
-                    tags.add(tag);
+                    // Create new tag for this post
+                    BlogTag newTag = new BlogTag();
+                    newTag.setTagName(normalizedTag);
+                    newTag.setBlogPost(savedPost);
+                    
+                    tags.add(newTag);
                 }
             }
             savedPost.setBlogTags(tags);
@@ -127,38 +119,42 @@ public class BlogPostService {
         }
         post.setUpdatedAt(LocalDateTime.now());
 
-        // Clear existing tags
-        if (post.getBlogTags() != null) {
-            post.getBlogTags().clear();
+        // Update tags (modify collection in place to preserve Hibernate tracking)
+        Set<BlogTag> existingTags = post.getBlogTags();
+        if (existingTags == null) {
+            existingTags = new HashSet<>();
+            post.setBlogTags(existingTags);
         }
+        
+        // Remove tags that are no longer present
+        existingTags.removeIf(tag -> tagNames == null || !tagNames.contains(tag.getTagName()));
 
-        // Process new tags
+        // Add new tags
         if (tagNames != null && !tagNames.isEmpty()) {
-            Set<BlogTag> tags = new HashSet<>();
+            Set<String> existingTagNames = existingTags.stream()
+                .map(BlogTag::getTagName)
+                .collect(Collectors.toSet());
+            
             for (String tagName : tagNames) {
                 if (tagName != null && !tagName.trim().isEmpty()) {
                     String normalizedTag = tagName.trim().toLowerCase();
+                    
+                    // Only add if not already present
+                    if (!existingTagNames.contains(normalizedTag)) {
+                        BlogTag tag = blogTagRepository.findByTagNameIgnoreCase(normalizedTag)
+                            .orElseGet(() -> {
+                                BlogTag newTag = new BlogTag();
+                                newTag.setTagName(normalizedTag);
+                                newTag.setBlogPost(post);
+                                return newTag;
+                            });
 
-                    BlogTag tag = blogTagRepository.findByTagNameIgnoreCase(normalizedTag)
-                        .orElseGet(() -> {
-                            BlogTag newTag = new BlogTag();
-                            newTag.setTagName(normalizedTag);
-                            newTag.setBlogPost(post);
-                            return blogTagRepository.save(newTag);
-                        });
-
-                    // Update association if needed
-                    if (tag.getId() != null && tag.getBlogPost() != null &&
-                        tag.getBlogPost().getId() != null && post.getId() != null &&
-                        !tag.getBlogPost().getId().equals(post.getId())) {
+                        // Set the post association
                         tag.setBlogPost(post);
-                        blogTagRepository.save(tag);
+                        existingTags.add(tag);
                     }
-
-                    tags.add(tag);
                 }
             }
-            post.setBlogTags(tags);
         }
 
         return blogPostRepository.save(post);
@@ -241,9 +237,27 @@ public class BlogPostService {
     }
 
     /**
+     * Get distinct tag names (no duplicates) ordered alphabetically
+     */
+    public Set<String> getDistinctTagNames() {
+        return blogTagRepository.findDistinctTagNames();
+    }
+
+    /**
      * Get all posts ordered by published date descending
      */
     public List<BlogPost> getAllPostsSorted() {
         return blogPostRepository.findAllByOrderByPublishedAtDesc();
+    }
+
+    /**
+     * Generate URL-friendly slug from title
+     */
+    private String generateSlug(String title) {
+        return title.toLowerCase()
+                .replaceAll("[^a-z0-9\\s-]", "")
+                .replaceAll("\\s+", "-")
+                .replaceAll("-+", "-")
+                .replaceAll("^-|-$", "");
     }
 }

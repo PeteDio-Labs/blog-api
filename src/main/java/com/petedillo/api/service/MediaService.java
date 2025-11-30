@@ -127,27 +127,25 @@ public class MediaService {
      */
     @Transactional
     public void reorderMedia(Long postId, List<Long> mediaIds) {
-        // Validate post exists
-        BlogPost blogPost = blogPostRepository.findById(postId)
-            .orElseThrow(() -> new ResourceNotFoundException("Blog post not found: " + postId));
+        // Fetch all media items and validate they belong to this post
+        List<BlogMedia> mediaList = mediaIds.stream()
+            .map(mediaId -> blogMediaRepository.findById(mediaId)
+                .orElseThrow(() -> new ResourceNotFoundException("Media not found: " + mediaId)))
+            .peek(media -> {
+                if (!media.getBlogPost().getId().equals(postId)) {
+                    throw new IllegalArgumentException(
+                        "Media item " + media.getId() + " does not belong to post " + postId
+                    );
+                }
+            })
+            .collect(Collectors.toList());
 
-        // Validate all media items exist and belong to this post
-        for (int i = 0; i < mediaIds.size(); i++) {
-            Long mediaId = mediaIds.get(i);
-            BlogMedia media = blogMediaRepository.findById(mediaId)
-                .orElseThrow(() -> new ResourceNotFoundException("Media not found: " + mediaId));
-
-            // Validate media belongs to this post
-            if (!media.getBlogPost().getId().equals(postId)) {
-                throw new IllegalArgumentException(
-                    "Media item " + mediaId + " does not belong to post " + postId
-                );
-            }
-
-            // Update display order
-            media.setDisplayOrder(i);
-            blogMediaRepository.save(media);
+        // Update display order for all media items
+        for (int i = 0; i < mediaList.size(); i++) {
+            mediaList.get(i).setDisplayOrder(i);
         }
+
+        blogMediaRepository.saveAll(mediaList);
     }
 
     /**
