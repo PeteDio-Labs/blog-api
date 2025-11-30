@@ -65,11 +65,17 @@ public class AdminController {
         }
 
         model.addAttribute("posts", posts);
-        model.addAttribute("allTags", blogPostService.getAllTags());
+        model.addAttribute("allTags", blogPostService.getDistinctTagNames());
         model.addAttribute("search", search);
         model.addAttribute("tag", tag);
 
         return "admin/posts/list";
+    }
+
+    // Redirect any direct view to edit route
+    @GetMapping("/posts/{id}")
+    public String redirectViewToEdit(@PathVariable Long id) {
+        return "redirect:/manage/posts/" + id + "/edit";
     }
 
     // === New Post Form ===
@@ -77,7 +83,7 @@ public class AdminController {
     @GetMapping("/posts/new")
     public String newPostForm(Model model) {
         model.addAttribute("post", new BlogPost());
-        model.addAttribute("allTags", blogPostService.getAllTags());
+        model.addAttribute("allTags", blogPostService.getDistinctTagNames());
         return "admin/posts/form";
     }
 
@@ -92,7 +98,7 @@ public class AdminController {
         }
         
         model.addAttribute("post", post);
-        model.addAttribute("allTags", blogPostService.getAllTags());
+        model.addAttribute("allTags", blogPostService.getDistinctTagNames());
         return "admin/posts/form";
     }
 
@@ -137,7 +143,7 @@ public class AdminController {
                     postDTO.getTagsAsSet()
             );
             redirectAttributes.addFlashAttribute("success", "Post updated successfully");
-            return "redirect:/manage/posts/" + id;
+            return "redirect:/manage/posts/" + id + "/edit";
         } catch (Exception e) {
             redirectAttributes.addFlashAttribute("error", "Failed to update post: " + e.getMessage());
             return "redirect:/manage/posts/" + id + "/edit";
