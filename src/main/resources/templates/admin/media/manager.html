@@ -681,8 +681,6 @@
 
                         adminUtils.showFlash('Media deleted', 'success');
                         // Check if empty and reload if necessary
-                        const gridView = document.getElementById('gridView');
-                        const listView = document.getElementById('listView');
                         const remainingCards = document.querySelectorAll('.media-card, .media-row');
                         if (remainingCards.length === 0) {
                             location.reload();
