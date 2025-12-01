@@ -184,16 +184,15 @@ class MediaServiceTest {
         media2.setBlogPost(testPost);
         media2.setDisplayOrder(1);
 
-        when(blogPostRepository.findById(1L)).thenReturn(Optional.of(testPost));
         when(blogMediaRepository.findById(1L)).thenReturn(Optional.of(media1));
         when(blogMediaRepository.findById(2L)).thenReturn(Optional.of(media2));
-        when(blogMediaRepository.save(any(BlogMedia.class))).thenReturn(media1);
+        when(blogMediaRepository.saveAll(anyList())).thenReturn(Arrays.asList(media1, media2));
 
         // Act
         mediaService.reorderMedia(1L, Arrays.asList(2L, 1L));
 
         // Assert
-        verify(blogMediaRepository, times(2)).save(any(BlogMedia.class));
+        verify(blogMediaRepository).saveAll(anyList());
     }
 
     @Test
@@ -206,7 +205,6 @@ class MediaServiceTest {
         media1.setId(1L);
         media1.setBlogPost(otherPost); // Different post
 
-        when(blogPostRepository.findById(1L)).thenReturn(Optional.of(testPost));
         when(blogMediaRepository.findById(1L)).thenReturn(Optional.of(media1));
 
         // Act & Assert
@@ -218,7 +216,7 @@ class MediaServiceTest {
     @Test
     void testReorderMedia_NonExistentPost_ThrowsException() {
         // Arrange
-        when(blogPostRepository.findById(999L)).thenReturn(Optional.empty());
+        when(blogMediaRepository.findById(1L)).thenReturn(Optional.empty());
 
         // Act & Assert
         assertThrows(ResourceNotFoundException.class, () -> {

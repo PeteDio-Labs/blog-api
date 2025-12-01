@@ -203,20 +203,7 @@ class BlogPostServiceTest {
         savedPost.setId(1L);
         savedPost.setTitle("New Post");
 
-        BlogTag javaTag = new BlogTag();
-        javaTag.setId(1L);
-        javaTag.setTagName("java");
-        javaTag.setBlogPost(savedPost);
-
-        BlogTag springTag = new BlogTag();
-        springTag.setId(2L);
-        springTag.setTagName("spring boot");
-        springTag.setBlogPost(savedPost);
-
         when(blogPostRepository.save(any(BlogPost.class))).thenReturn(savedPost);
-        when(blogTagRepository.findByTagNameIgnoreCase("java")).thenReturn(Optional.of(javaTag));
-        when(blogTagRepository.findByTagNameIgnoreCase("spring boot")).thenReturn(Optional.empty());
-        when(blogTagRepository.save(any(BlogTag.class))).thenReturn(springTag);
 
         // Act
         BlogPost result = blogPostService.createPost("New Post", "Content", "Excerpt", "published", tagNames);
@@ -224,8 +211,8 @@ class BlogPostServiceTest {
         // Assert
         assertNotNull(result);
         verify(blogPostRepository, atLeastOnce()).save(any(BlogPost.class));
-        verify(blogTagRepository).findByTagNameIgnoreCase("java");
-        verify(blogTagRepository).findByTagNameIgnoreCase("spring boot");
+        // Tags are created directly in createPost, not looked up
+        assertEquals(2, savedPost.getTags().size());
     }
 
     @Test
