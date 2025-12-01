@@ -1,11 +1,13 @@
 package com.petedillo.api.controller;
 
 import com.petedillo.api.config.AppConfig;
+import com.petedillo.api.config.SecurityConfig;
 import com.petedillo.api.service.FileStorageService;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
+import org.springframework.context.annotation.Import;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
@@ -18,6 +20,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
 @WebMvcTest(MediaController.class)
+@Import(SecurityConfig.class)
 @ActiveProfiles("test")
 class MediaControllerTest {
 
