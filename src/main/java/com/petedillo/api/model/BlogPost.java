@@ -91,10 +91,15 @@ public class BlogPost {
     }
 
     /**
-     * Adds a media item to this blog post.
-     * @param mediaItem the media item to add
+     * Adds a media item to this blog post and sets the bidirectional relationship.
+     * @param mediaItem the media item to add (must not be null)
+     * @throws IllegalArgumentException if mediaItem is null
      */
     public void addMedia(BlogMedia mediaItem) {
+        if (mediaItem == null) {
+            throw new IllegalArgumentException("mediaItem must not be null");
+        }
+        mediaItem.setBlogPost(this);
         media.add(mediaItem);
     }
 
