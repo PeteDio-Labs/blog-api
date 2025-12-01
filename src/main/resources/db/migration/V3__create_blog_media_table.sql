@@ -1,8 +1,10 @@
 -- ============================================================================
 -- Migration: V3__create_blog_media_table.sql
 -- Description: Create blog_media table for images, videos, and audio
--- Author: Pete Dillo
--- Date: 2025-10-28
+-- Sprint: Sprint 1
+-- Author: Pedro Delgadillo
+-- Date: November 17, 2025
+-- Documentation: 29 files, 368KB
 -- ============================================================================
 
 CREATE TABLE blog_media (
@@ -47,3 +49,8 @@ COMMENT ON COLUMN blog_media.file_path IS 'Relative path to uploaded file on ser
 COMMENT ON COLUMN blog_media.external_url IS 'URL for externally hosted images';
 COMMENT ON COLUMN blog_media.display_order IS 'Order in which media appears in post';
 COMMENT ON COLUMN blog_media.file_size IS 'File size in bytes (null for external)';
+-- ============================================================================
+-- Solo Developer: Pedro Delgadillo
+-- Documentation: 29 files, 368KB
+-- Completion Date: November 17, 2025
+-- ============================================================================

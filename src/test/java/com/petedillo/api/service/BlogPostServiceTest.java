@@ -96,7 +96,9 @@ class BlogPostServiceTest {
     @Test
     void testGetPostBySlug_ValidSlug_ReturnsPost() {
         // Arrange
-        when(blogPostRepository.findBySlug("test-post"))
+        when(blogPostRepository.findBySlugWithTags("test-post"))
+            .thenReturn(Optional.of(testPost));
+        when(blogPostRepository.findBySlugWithMedia("test-post"))
             .thenReturn(Optional.of(testPost));
 
         // Act
@@ -111,7 +113,8 @@ class BlogPostServiceTest {
         assertNotNull(result.getMedia());
         assertEquals(1, result.getMedia().size());
         assertEquals(0, result.getMedia().get(0).getDisplayOrder());
-        verify(blogPostRepository).findBySlug("test-post");
+        verify(blogPostRepository).findBySlugWithTags("test-post");
+        verify(blogPostRepository).findBySlugWithMedia("test-post");
     }
 
     @Test
@@ -124,8 +127,10 @@ class BlogPostServiceTest {
         media2.setFilePath("images/test.jpg");
         media2.setDisplayOrder(1);
         testPost.getMedia().add(media2);
-        
-        when(blogPostRepository.findBySlug("test-post"))
+
+        when(blogPostRepository.findBySlugWithTags("test-post"))
+            .thenReturn(Optional.of(testPost));
+        when(blogPostRepository.findBySlugWithMedia("test-post"))
             .thenReturn(Optional.of(testPost));
 
         // Act
@@ -136,13 +141,14 @@ class BlogPostServiceTest {
         assertEquals(2, result.getMedia().size());
         assertEquals(0, result.getMedia().get(0).getDisplayOrder());
         assertEquals(1, result.getMedia().get(1).getDisplayOrder());
-        verify(blogPostRepository).findBySlug("test-post");
+        verify(blogPostRepository).findBySlugWithTags("test-post");
+        verify(blogPostRepository).findBySlugWithMedia("test-post");
     }
 
     @Test
     void testGetPostBySlug_InvalidSlug_ThrowsResourceNotFoundException() {
         // Arrange
-        when(blogPostRepository.findBySlug("invalid-slug"))
+        when(blogPostRepository.findBySlugWithTags("invalid-slug"))
             .thenReturn(Optional.empty());
 
         // Act & Assert
@@ -152,7 +158,7 @@ class BlogPostServiceTest {
         );
 
         assertEquals("Post not found with slug: invalid-slug", exception.getMessage());
-        verify(blogPostRepository).findBySlug("invalid-slug");
+        verify(blogPostRepository).findBySlugWithTags("invalid-slug");
     }
 
     @Test
@@ -424,5 +430,112 @@ class BlogPostServiceTest {
         assertNotNull(result);
         assertEquals(1, result.size());
         verify(blogPostRepository).findAllByOrderByPublishedAtDesc();
+    }
+
+    // === TDD TESTS FOR CARTESIAN PRODUCT FIX ===
+
+    @Test
+    void testGetPostBySlug_NoCartesianProduct_WithMultipleTagsAndMedia() {
+        // Arrange - Create post with 3 tags and 3 media items
+        // Without fix: would return 3×3=9 duplicate media rows
+        BlogPost post = new BlogPost();
+        post.setId(1L);
+        post.setSlug("test-cartesian");
+        post.setTitle("Test Cartesian Product");
+        post.setContent("Content");
+        post.setStatus("published");
+        post.setPublishedAt(LocalDateTime.now());
+        post.setTags(Arrays.asList("java", "spring", "jpa"));
+
+        // Add 3 media items
+        for (int i = 0; i < 3; i++) {
+            BlogMedia media = new BlogMedia();
+            media.setId((long) (i + 1));
+            media.setBlogPost(post);
+            media.setMediaType(BlogMedia.MediaType.EXTERNAL_IMAGE);
+            media.setExternalUrl("https://example.com/test" + i + ".jpg");
+            media.setDisplayOrder(i);
+            post.getMedia().add(media);
+        }
+
+        // Mock the new two-query approach
+        when(blogPostRepository.findBySlugWithTags("test-cartesian"))
+            .thenReturn(Optional.of(post));
+        when(blogPostRepository.findBySlugWithMedia("test-cartesian"))
+            .thenReturn(Optional.of(post));
+
+        // Act
+        BlogPost result = blogPostService.getPostBySlug("test-cartesian");
+
+        // Assert - verify correct counts (not multiplied by Cartesian product)
+        assertNotNull(result);
+        assertEquals(3, result.getTags().size(), "Should have exactly 3 tags");
+        assertEquals(3, result.getMedia().size(), "Should have exactly 3 media items, not 9 from Cartesian product");
+
+        // Verify all tags present
+        assertTrue(result.getTags().containsAll(Arrays.asList("java", "spring", "jpa")));
+
+        // Verify media ordering maintained
+        for (int i = 0; i < 3; i++) {
+            assertEquals(i, result.getMedia().get(i).getDisplayOrder());
+        }
+
+        // Verify both repository methods were called
+        verify(blogPostRepository).findBySlugWithTags("test-cartesian");
+        verify(blogPostRepository).findBySlugWithMedia("test-cartesian");
+    }
+
+    @Test
+    void testGetPostBySlug_LoadsBothTagsAndMediaCorrectly() {
+        // Arrange - Create post with 2 tags and 2 media (would create 4 rows with Cartesian product)
+        BlogPost post = new BlogPost();
+        post.setId(2L);
+        post.setSlug("test-post-dual");
+        post.setTitle("Test Post");
+        post.setContent("Content");
+        post.setStatus("published");
+        post.setPublishedAt(LocalDateTime.now());
+        post.setTags(Arrays.asList("tag1", "tag2"));
+
+        BlogMedia media1 = new BlogMedia();
+        media1.setId(1L);
+        media1.setBlogPost(post);
+        media1.setMediaType(BlogMedia.MediaType.EXTERNAL_IMAGE);
+        media1.setExternalUrl("https://example.com/test1.jpg");
+        media1.setDisplayOrder(0);
+
+        BlogMedia media2 = new BlogMedia();
+        media2.setId(2L);
+        media2.setBlogPost(post);
+        media2.setMediaType(BlogMedia.MediaType.EXTERNAL_IMAGE);
+        media2.setExternalUrl("https://example.com/test2.jpg");
+        media2.setDisplayOrder(1);
+
+        post.getMedia().add(media1);
+        post.getMedia().add(media2);
+
+        // Mock the new two-query approach
+        when(blogPostRepository.findBySlugWithTags("test-post-dual"))
+            .thenReturn(Optional.of(post));
+        when(blogPostRepository.findBySlugWithMedia("test-post-dual"))
+            .thenReturn(Optional.of(post));
+
+        // Act
+        BlogPost result = blogPostService.getPostBySlug("test-post-dual");
+
+        // Assert - verify correct counts (not multiplied by Cartesian product)
+        assertNotNull(result.getTags());
+        assertEquals(2, result.getTags().size());
+
+        assertNotNull(result.getMedia());
+        assertEquals(2, result.getMedia().size(), "Should have exactly 2 media items, not 4 from Cartesian product");
+
+        // Verify ordering maintained
+        assertEquals(0, result.getMedia().get(0).getDisplayOrder());
+        assertEquals(1, result.getMedia().get(1).getDisplayOrder());
+
+        // Verify both repository methods were called
+        verify(blogPostRepository).findBySlugWithTags("test-post-dual");
+        verify(blogPostRepository).findBySlugWithMedia("test-post-dual");
     }
 }

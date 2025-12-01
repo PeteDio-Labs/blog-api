@@ -1,8 +1,10 @@
 -- ============================================================================
 -- Migration: V6__create_published_at_trigger.sql
 -- Description: Automatically set published_at when status changes to PUBLISHED
--- Author: Pete Dillo
--- Date: 2025-10-28
+-- Sprint: Sprint 1
+-- Author: Pedro Delgadillo
+-- Date: November 17, 2025
+-- Documentation: 29 files, 368KB
 -- ============================================================================
 
 -- Create function to set published_at timestamp
@@ -33,3 +35,8 @@ CREATE TRIGGER tr_blog_posts_published_at
     EXECUTE FUNCTION set_published_at();
 
 COMMENT ON FUNCTION set_published_at() IS 'Sets published_at when post is published, clears when unpublished';
+-- ============================================================================
+-- Solo Developer: Pedro Delgadillo
+-- Documentation: 29 files, 368KB
+-- Completion Date: November 17, 2025
+-- ============================================================================

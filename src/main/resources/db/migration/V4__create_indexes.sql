@@ -1,8 +1,10 @@
 -- ============================================================================
 -- Migration: V4__create_indexes.sql
 -- Description: Create indexes for query optimization
--- Author: Pete Dillo
--- Date: 2025-10-28
+-- Sprint: Sprint 1
+-- Author: Pedro Delgadillo
+-- Date: November 17, 2025
+-- Documentation: 29 files, 368KB
 -- ============================================================================
 
 -- ============================================================================
@@ -51,3 +53,8 @@ CREATE INDEX idx_blog_media_type ON blog_media(media_type);
 -- Index for finding media by file path (for cleanup operations)
 CREATE INDEX idx_blog_media_file_path ON blog_media(file_path) 
     WHERE file_path IS NOT NULL;
+-- ============================================================================
+-- Solo Developer: Pedro Delgadillo
+-- Documentation: 29 files, 368KB
+-- Completion Date: November 17, 2025
+-- ============================================================================

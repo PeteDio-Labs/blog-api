@@ -304,4 +304,161 @@ class BlogPostRepositoryTest {
             .orElseThrow();
         assertEquals("images/first.jpg", coverImage.getFilePath());
     }
+
+    // === TDD INTEGRATION TESTS FOR CARTESIAN PRODUCT FIX ===
+
+    @Test
+    void testFindBySlugWithTags_NoCartesianProduct_3x3Scenario() {
+        // Arrange - Create post with 3 tags × 3 media (would create 9 rows with Cartesian product)
+        for (int i = 0; i < 3; i++) {
+            BlogMedia media = new BlogMedia();
+            media.setBlogPost(testPost);
+            media.setMediaType(BlogMedia.MediaType.EXTERNAL_IMAGE);
+            media.setExternalUrl("https://example.com/test" + i + ".jpg");
+            media.setDisplayOrder(i);
+            testPost.getMedia().add(media);
+        }
+        testPost.setTags(Arrays.asList("java", "spring", "jpa"));
+
+        blogPostRepository.save(testPost);
+
+        // Act - Load with tags first
+        Optional<BlogPost> postWithTags = blogPostRepository.findBySlugWithTags("test-post");
+
+        // Assert
+        assertTrue(postWithTags.isPresent());
+        BlogPost post = postWithTags.get();
+
+        // Verify tags loaded
+        assertNotNull(post.getTags());
+        assertEquals(3, post.getTags().size(), "Should have exactly 3 tags");
+        assertTrue(post.getTags().containsAll(Arrays.asList("java", "spring", "jpa")));
+    }
+
+    @Test
+    void testFindBySlugWithMedia_LoadsMediaInOrder() {
+        // Arrange - Create post with 3 media items
+        for (int i = 0; i < 3; i++) {
+            BlogMedia media = new BlogMedia();
+            media.setBlogPost(testPost);
+            media.setMediaType(BlogMedia.MediaType.EXTERNAL_IMAGE);
+            media.setExternalUrl("https://example.com/test" + i + ".jpg");
+            media.setDisplayOrder(i);
+            media.setAltText("Image " + i);
+            testPost.getMedia().add(media);
+        }
+        testPost.setTags(Arrays.asList("tag1"));
+
+        blogPostRepository.save(testPost);
+
+        // Act - Load with media
+        Optional<BlogPost> postWithMedia = blogPostRepository.findBySlugWithMedia("test-post");
+
+        // Assert
+        assertTrue(postWithMedia.isPresent());
+        BlogPost post = postWithMedia.get();
+
+        // Verify media loaded in correct order
+        assertNotNull(post.getMedia());
+        assertEquals(3, post.getMedia().size(), "Should have exactly 3 media items");
+
+        // Verify ordering
+        for (int i = 0; i < 3; i++) {
+            assertEquals(i, post.getMedia().get(i).getDisplayOrder());
+            assertEquals("Image " + i, post.getMedia().get(i).getAltText());
+        }
+    }
+
+    @Test
+    void testTwoQueryPattern_LoadsAllDataWithoutCartesianProduct() {
+        // Arrange - Create post with 2 tags × 2 media (would create 4 rows with old approach)
+        BlogMedia media1 = new BlogMedia();
+        media1.setBlogPost(testPost);
+        media1.setMediaType(BlogMedia.MediaType.EXTERNAL_IMAGE);
+        media1.setExternalUrl("https://example.com/test1.jpg");
+        media1.setDisplayOrder(0);
+
+        BlogMedia media2 = new BlogMedia();
+        media2.setBlogPost(testPost);
+        media2.setMediaType(BlogMedia.MediaType.EXTERNAL_IMAGE);
+        media2.setExternalUrl("https://example.com/test2.jpg");
+        media2.setDisplayOrder(1);
+
+        testPost.getMedia().add(media1);
+        testPost.getMedia().add(media2);
+        testPost.setTags(Arrays.asList("tag1", "tag2"));
+
+        blogPostRepository.save(testPost);
+
+        // Act - Simulate the two-query pattern
+        // Query 1: Load with tags
+        Optional<BlogPost> postWithTags = blogPostRepository.findBySlugWithTags("test-post");
+        assertTrue(postWithTags.isPresent());
+
+        // Query 2: Load with media
+        Optional<BlogPost> postWithMedia = blogPostRepository.findBySlugWithMedia("test-post");
+        assertTrue(postWithMedia.isPresent());
+
+        BlogPost finalPost = postWithMedia.get();
+
+        // Assert - Verify no Cartesian product
+        assertNotNull(finalPost.getTags());
+        assertEquals(2, finalPost.getTags().size(), "Should have exactly 2 tags");
+
+        assertNotNull(finalPost.getMedia());
+        assertEquals(2, finalPost.getMedia().size(), "Should have exactly 2 media items, not 4 from Cartesian product");
+
+        // Verify ordering maintained
+        assertEquals(0, finalPost.getMedia().get(0).getDisplayOrder());
+        assertEquals(1, finalPost.getMedia().get(1).getDisplayOrder());
+    }
+
+    @Test
+    void testFindAllByOrderByPublishedAtDesc_WithEntityGraph_LoadsTagsEfficiently() {
+        // Arrange - Create 3 posts with tags to test N+1 query issue
+        blogPostRepository.deleteAll();
+
+        for (int i = 0; i < 3; i++) {
+            BlogPost post = new BlogPost();
+            post.setTitle("Post " + i);
+            post.setSlug("post-" + i);
+            post.setContent("Content " + i);
+            post.setStatus("published");
+            post.setPublishedAt(LocalDateTime.now().minusDays(i));
+            post.setCreatedAt(LocalDateTime.now());
+            post.setUpdatedAt(LocalDateTime.now());
+            post.setTags(Arrays.asList("tag" + i, "common"));
+            blogPostRepository.save(post);
+        }
+
+        // Act
+        List<BlogPost> posts = blogPostRepository.findAllByOrderByPublishedAtDesc();
+
+        // Assert
+        assertEquals(3, posts.size());
+        // Verify all tags loaded (with EntityGraph, no N+1 queries)
+        for (BlogPost post : posts) {
+            assertNotNull(post.getTags());
+            assertEquals(2, post.getTags().size());
+            assertTrue(post.getTags().contains("common"));
+        }
+    }
+
+    @Test
+    void testSearchByTitleOrSlug_WithEntityGraph_LoadsTagsEfficiently() {
+        // Arrange
+        testPost.setTags(Arrays.asList("java", "spring"));
+        blogPostRepository.save(testPost);
+
+        // Act
+        List<BlogPost> results = blogPostRepository.searchByTitleOrSlug("Test");
+
+        // Assert
+        assertFalse(results.isEmpty());
+        BlogPost post = results.get(0);
+        assertNotNull(post.getTags());
+        assertEquals(2, post.getTags().size());
+        assertTrue(post.getTags().contains("java"));
+        assertTrue(post.getTags().contains("spring"));
+    }
 }

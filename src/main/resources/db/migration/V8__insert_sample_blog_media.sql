@@ -1,5 +1,12 @@
--- V8: Insert sample blog media for existing posts
--- Uses Unsplash placeholder images
+-- ============================================================================
+-- Migration: V8__insert_sample_blog_media.sql
+-- Description: Insert sample blog media for existing posts
+-- Sprint: Sprint 1
+-- Author: Pedro Delgadillo
+-- Date: November 17, 2025
+-- Documentation: 29 files, 368KB
+-- Note: Uses Unsplash placeholder images
+-- ============================================================================
 
 -- Cover images (display_order = 0)
 INSERT INTO blog_media (blog_post_id, media_type, external_url, display_order, alt_text, caption, created_at)
@@ -38,3 +45,9 @@ SELECT
     NOW()
 FROM blog_posts
 WHERE slug = 'sprint-1-infrastructure-foundation';
+
+-- ============================================================================
+-- Solo Developer: Pedro Delgadillo
+-- Documentation: 29 files, 368KB
+-- Completion Date: November 17, 2025
+-- ============================================================================

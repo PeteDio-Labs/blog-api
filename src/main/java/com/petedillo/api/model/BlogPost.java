@@ -17,6 +17,16 @@ import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
 
+@NamedEntityGraphs({
+    @NamedEntityGraph(
+        name = "BlogPost.tags",
+        attributeNodes = @NamedAttributeNode("blogTags")
+    ),
+    @NamedEntityGraph(
+        name = "BlogPost.media",
+        attributeNodes = @NamedAttributeNode("media")
+    )
+})
 @Setter
 @Getter
 @Entity
@@ -62,7 +72,7 @@ public class BlogPost {
     private LocalDateTime publishedAt;
 
     @JsonIgnore
-    @OneToMany(mappedBy = "blogPost", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.EAGER)
+    @OneToMany(mappedBy = "blogPost", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
     private Set<BlogTag> blogTags = new HashSet<>();
 
     @OneToMany(mappedBy = "blogPost", cascade = CascadeType.ALL, orphanRemoval = true)

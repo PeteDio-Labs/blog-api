@@ -48,9 +48,16 @@ public class BlogPostService {
     }
 
     @NotNull
+    @Transactional  // Ensure both queries run in same persistence context
     public BlogPost getPostBySlug(@NotNull String slug) {
-        return blogPostRepository.findBySlug(slug)
+        // First query: load post with tags
+        BlogPost post = blogPostRepository.findBySlugWithTags(slug)
             .orElseThrow(() -> new ResourceNotFoundException("Post not found with slug: " + slug));
+
+        // Second query: load media (attaches to same BlogPost in persistence context)
+        blogPostRepository.findBySlugWithMedia(slug);
+
+        return post;
     }
 
     @NotNull
