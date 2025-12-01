@@ -2,7 +2,6 @@ package com.petedillo.api.exception;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -25,6 +24,17 @@ public class GlobalExceptionHandler {
             System.currentTimeMillis()
         );
         return new ResponseEntity<>(error, HttpStatus.NOT_FOUND);
+    }
+
+    @ExceptionHandler(MediaUploadException.class)
+    public ResponseEntity<ErrorResponse> handleMediaUploadException(MediaUploadException ex) {
+        log.error("Media upload error", ex);
+        ErrorResponse error = new ErrorResponse(
+            HttpStatus.BAD_REQUEST.value(),
+            ex.getMessage(),
+            System.currentTimeMillis()
+        );
+        return new ResponseEntity<>(error, HttpStatus.BAD_REQUEST);
     }
 
     @ExceptionHandler(Exception.class)

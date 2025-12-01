@@ -1,0 +1,473 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org"
+      xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout"
+      layout:decorate="~{layouts/base}">
+<head>
+    <title>Manage Posts</title>
+</head>
+<body>
+    <div layout:fragment="content">
+        <!-- Page Header -->
+        <div class="page-header">
+            <div class="header-left">
+                <h2 class="page-title">
+                    <span class="neon-text">Blog Posts</span>
+                    <span class="count-badge" th:text="${posts.size()}">0</span>
+                </h2>
+            </div>
+            <div class="header-right">
+                <a th:href="@{/manage/posts/new}" class="btn btn-primary">
+                    <span class="icon">+</span>
+                    New Post
+                </a>
+            </div>
+        </div>
+
+        <!-- Search and Filter Bar -->
+        <div class="filter-bar">
+            <form th:action="@{/manage/posts}" method="get" class="search-form">
+                <div class="search-group">
+                    <input type="text"
+                           name="search"
+                           th:value="${search}"
+                           placeholder="Search posts..."
+                           class="search-input">
+                    <button type="submit" class="btn btn-search">
+                        Search
+                    </button>
+                </div>
+            </form>
+
+            <div class="tag-filter">
+                <label>Filter by tag:</label>
+                <select id="tagFilter" class="tag-select"
+                        onchange="window.location.href = this.value ? '/manage/posts?tag=' + this.value : '/manage/posts'">
+                    <option value="">All Tags</option>
+                    <option th:each="tagName : ${allTags}"
+                            th:value="${tagName}"
+                            th:text="${tagName}"
+                            th:selected="${tag == tagName}">
+                        Tag Name
+                    </option>
+                </select>
+            </div>
+
+            <!-- Clear Filters -->
+            <a th:if="${search != null or tag != null}"
+               th:href="@{/manage/posts}"
+               class="btn btn-secondary">
+                Clear Filters
+            </a>
+        </div>
+
+        <!-- Posts Table -->
+        <div class="posts-table-container">
+            <div th:if="${posts.isEmpty()}" class="empty-state">
+                <div class="empty-icon">📝</div>
+                <p class="empty-message">No posts found</p>
+                <a th:href="@{/manage/posts/new}" class="btn btn-primary">Create Your First Post</a>
+            </div>
+
+            <table th:if="${!posts.isEmpty()}" class="posts-table">
+                <thead>
+                    <tr>
+                        <th class="col-cover">Cover</th>
+                        <th class="col-title">Title</th>
+                        <th class="col-tags">Tags</th>
+                        <th class="col-status">Status</th>
+                        <th class="col-date">Published</th>
+                        <th class="col-actions">Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr th:each="post : ${posts}" class="post-row">
+                        <!-- Cover Image -->
+                        <td class="col-cover">
+                            <div class="cover-thumbnail">
+                                <img th:if="${!post.media.empty and post.media.?[displayOrder == 0][0] != null}"
+                                     th:src="${post.media.?[displayOrder == 0][0].url}"
+                                     th:alt="${post.title}"
+                                     class="cover-img">
+                                <img th:if="${!post.media.empty and post.media.?[displayOrder == 0][0] == null}"
+                                     th:src="${post.media[0].url}"
+                                     th:alt="${post.title}"
+                                     class="cover-img">
+                                <div th:if="${post.media.empty}" class="no-cover">
+                                    🖼️
+                                </div>
+                            </div>
+                        </td>
+
+                        <!-- Title and Excerpt -->
+                        <td class="col-title">
+                            <div class="title-cell">
+                                <a th:href="@{/manage/posts/{id}/edit(id=${post.id})}"
+                                   class="post-title"
+                                   th:text="${post.title}">
+                                    Post Title
+                                </a>
+                                <p class="post-excerpt" th:if="${post.excerpt}" th:text="${post.excerpt}">
+                                    Post excerpt...
+                                </p>
+                            </div>
+                        </td>
+
+                        <!-- Tags -->
+                        <td class="col-tags">
+                            <div class="tags-list">
+                                <span th:each="tag : ${post.blogTags}"
+                                      class="tag-badge"
+                                      th:text="${tag.tagName}">
+                                    tag
+                                </span>
+                                <span th:if="${post.blogTags.isEmpty()}" class="text-muted">
+                                    No tags
+                                </span>
+                            </div>
+                        </td>
+
+                        <!-- Status -->
+                        <td class="col-status">
+                            <span th:if="${post.status == 'PUBLISHED'}" class="badge badge-published">Published</span>
+                            <span th:if="${post.status == 'DRAFT'}" class="badge badge-draft">Draft</span>
+                        </td>
+
+                        <!-- Published Date -->
+                        <td class="col-date">
+                            <span th:if="${post.publishedAt != null}"
+                                  th:text="${#temporals.format(post.publishedAt, 'MMM dd, yyyy')}">
+                                Jan 01, 2025
+                            </span>
+                            <span th:if="${post.publishedAt == null}" class="text-muted">
+                                Not published
+                            </span>
+                        </td>
+
+                        <!-- Actions -->
+                        <td class="col-actions">
+                            <div class="action-buttons">
+                                <a th:href="@{/manage/posts/{id}/edit(id=${post.id})}"
+                                   class="btn btn-icon btn-edit"
+                                   title="Edit">
+                                    ✏️
+                                </a>
+                                <form th:action="@{/manage/posts/{id}/delete(id=${post.id})}"
+                                      method="post"
+                                      style="display: inline;"
+                                      onsubmit="return confirm('Are you sure you want to delete this post?');">
+                                    <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}"/>
+                                    <button type="submit"
+                                            class="btn btn-icon btn-delete"
+                                            title="Delete">
+                                        🗑️
+                                    </button>
+                                </form>
+                            </div>
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- Page-specific CSS -->
+    <th:block layout:fragment="extra-css">
+        <style>
+            .page-header {
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+                margin-bottom: 2rem;
+            }
+
+            .page-title {
+                font-size: 2rem;
+                display: flex;
+                align-items: center;
+                gap: 1rem;
+                margin: 0;
+            }
+
+            .count-badge {
+                background: rgba(0, 255, 255, 0.2);
+                color: var(--neon-cyan);
+                padding: 0.25rem 0.75rem;
+                border-radius: 20px;
+                font-size: 1rem;
+            }
+
+            .filter-bar {
+                display: flex;
+                gap: 1rem;
+                align-items: center;
+                margin-bottom: 2rem;
+                padding: 1rem;
+                background: var(--surface-dark);
+                border-radius: 8px;
+                border: 1px solid var(--border-color);
+                flex-wrap: wrap;
+            }
+
+            .search-form {
+                flex: 1;
+                min-width: 300px;
+            }
+
+            .search-group {
+                display: flex;
+                gap: 0.5rem;
+            }
+
+            .search-input {
+                flex: 1;
+                padding: 0.5rem 1rem;
+                background: var(--background-dark);
+                border: 1px solid var(--border-color);
+                border-radius: 4px;
+                color: var(--text-primary);
+            }
+
+            .search-input:focus {
+                outline: none;
+                border-color: var(--neon-cyan);
+                box-shadow: 0 0 10px rgba(0, 255, 255, 0.3);
+            }
+
+            .btn-search {
+                padding: 0.5rem 1.5rem;
+            }
+
+            .tag-filter {
+                display: flex;
+                align-items: center;
+                gap: 0.5rem;
+            }
+
+            .tag-filter label {
+                color: var(--text-secondary);
+                white-space: nowrap;
+            }
+
+            .tag-select {
+                padding: 0.5rem 1rem;
+                background: var(--background-dark);
+                border: 1px solid var(--border-color);
+                border-radius: 4px;
+                color: var(--text-primary);
+                min-width: 150px;
+            }
+
+            .posts-table-container {
+                background: var(--surface-dark);
+                border-radius: 8px;
+                border: 1px solid var(--border-color);
+                overflow: hidden;
+            }
+
+            .posts-table {
+                width: 100%;
+                border-collapse: collapse;
+            }
+
+            .posts-table thead {
+                background: var(--background-dark);
+                border-bottom: 2px solid var(--neon-cyan);
+            }
+
+            .posts-table th {
+                padding: 1rem;
+                text-align: left;
+                color: var(--neon-cyan);
+                font-weight: 600;
+            }
+
+            .posts-table td {
+                padding: 1rem;
+                border-bottom: 1px solid var(--border-color);
+            }
+
+            .post-row:hover {
+                background: rgba(0, 255, 255, 0.05);
+            }
+
+            .cover-thumbnail {
+                width: 60px;
+                height: 60px;
+                border-radius: 4px;
+                overflow: hidden;
+                border: 1px solid var(--border-color);
+            }
+
+            .cover-img {
+                width: 100%;
+                height: 100%;
+                object-fit: cover;
+            }
+
+            .no-cover {
+                width: 100%;
+                height: 100%;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                background: var(--background-dark);
+                font-size: 1.5rem;
+            }
+
+            .title-cell {
+                display: flex;
+                flex-direction: column;
+                gap: 0.25rem;
+            }
+
+            .post-title {
+                color: var(--text-primary);
+                text-decoration: none;
+                font-weight: 600;
+                transition: color 0.3s ease;
+            }
+
+            .post-title:hover {
+                color: var(--neon-cyan);
+            }
+
+            .post-excerpt {
+                color: var(--text-secondary);
+                font-size: 0.875rem;
+                margin: 0;
+                overflow: hidden;
+                text-overflow: ellipsis;
+                display: -webkit-box;
+                -webkit-line-clamp: 2;
+                -webkit-box-orient: vertical;
+            }
+
+            .tags-list {
+                display: flex;
+                flex-wrap: wrap;
+                gap: 0.5rem;
+            }
+
+            .tag-badge {
+                background: rgba(92, 158, 255, 0.2);
+                color: var(--neon-blue);
+                padding: 0.25rem 0.75rem;
+                border-radius: 12px;
+                font-size: 0.75rem;
+                border: 1px solid var(--neon-blue);
+            }
+
+            .action-buttons {
+                display: flex;
+                gap: 0.5rem;
+            }
+
+            .btn-icon {
+                padding: 0.5rem;
+                font-size: 1.25rem;
+                cursor: pointer;
+                background: transparent;
+                border: 1px solid var(--border-color);
+                border-radius: 4px;
+                transition: all 0.3s ease;
+            }
+
+            .btn-edit:hover {
+                background: rgba(0, 255, 255, 0.2);
+                border-color: var(--neon-cyan);
+            }
+
+            .btn-delete {
+                background: transparent;
+            }
+
+            .btn-delete:hover {
+                background: rgba(255, 50, 50, 0.2);
+                border-color: var(--error);
+            }
+
+            .empty-state {
+                padding: 4rem 2rem;
+                text-align: center;
+            }
+
+            .empty-icon {
+                font-size: 4rem;
+                margin-bottom: 1rem;
+            }
+
+            .empty-message {
+                color: var(--text-secondary);
+                margin-bottom: 1.5rem;
+            }
+
+            .text-muted {
+                color: var(--text-secondary);
+            }
+
+            .col-cover {
+                width: 80px;
+            }
+
+            .col-status {
+                width: 100px;
+            }
+
+            .col-date {
+                width: 130px;
+            }
+
+            .col-actions {
+                width: 120px;
+            }
+
+            @media (max-width: 768px) {
+                .filter-bar {
+                    flex-direction: column;
+                    align-items: stretch;
+                }
+
+                .search-form {
+                    min-width: 100%;
+                }
+
+                .tag-filter {
+                    width: 100%;
+                }
+
+                .tag-select {
+                    flex: 1;
+                }
+
+                .posts-table thead {
+                    display: none;
+                }
+
+                .posts-table,
+                .posts-table tbody,
+                .posts-table tr,
+                .posts-table td {
+                    display: block;
+                    width: 100%;
+                }
+
+                .post-row {
+                    margin-bottom: 1rem;
+                    border: 1px solid var(--border-color);
+                    border-radius: 8px;
+                    padding: 1rem;
+                }
+
+                .post-row td {
+                    border-bottom: none;
+                    padding: 0.5rem 0;
+                }
+
+                .col-actions {
+                    text-align: right;
+                }
+            }
+        </style>
+    </th:block>
+</body>
+</html>

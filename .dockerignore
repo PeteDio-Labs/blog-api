@@ -1,10 +1,18 @@
-src/
-.mvn/
+# For production Dockerfile (uses pre-built JAR)
+# Uncomment these when building with main Dockerfile:
+# src/
+# .mvn/
+# pom.xml
+
+# Always ignore these
 .git/
 .gitignore
-pom.xml
 *.md
 .env
 .idea/
 .vscode/
 *.iml
+target/classes/
+target/test-classes/
+target/generated-sources/
+target/maven-status/

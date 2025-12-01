@@ -2,15 +2,31 @@ package com.petedillo.api.model;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import com.petedillo.api.dto.CoverImageDTO;
+import com.petedillo.api.dto.MediaDTO;
 import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.Setter;
+import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 
 import java.time.LocalDateTime;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 import java.util.stream.Collectors;
 
+@NamedEntityGraphs({
+    @NamedEntityGraph(
+        name = "BlogPost.tags",
+        attributeNodes = @NamedAttributeNode("blogTags")
+    ),
+    @NamedEntityGraph(
+        name = "BlogPost.media",
+        attributeNodes = @NamedAttributeNode("media")
+    )
+})
 @Setter
 @Getter
 @Entity
@@ -19,12 +35,22 @@ public class BlogPost {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @Nullable
     private Long id;
 
+    @NotNull
     private String title;
+
+    @NotNull
     private String slug;
+
+    @NotNull
     private String content;
+
+    @Nullable
     private String excerpt;
+
+    @NotNull
     private String status;
 
     @Column(name = "is_featured")
@@ -34,17 +60,24 @@ public class BlogPost {
     private int viewCount;
 
     @Column(name = "created_at")
+    @Nullable
     private LocalDateTime createdAt;
 
     @Column(name = "updated_at")
+    @Nullable
     private LocalDateTime updatedAt;
 
     @Column(name = "published_at")
+    @Nullable
     private LocalDateTime publishedAt;
 
     @JsonIgnore
-    @OneToMany(mappedBy = "blogPost", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.EAGER)
-    private List<BlogTag> blogTags = new ArrayList<>();
+    @OneToMany(mappedBy = "blogPost", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
+    private Set<BlogTag> blogTags = new HashSet<>();
+
+    @OneToMany(mappedBy = "blogPost", cascade = CascadeType.ALL, orphanRemoval = true)
+    @OrderBy("displayOrder ASC")
+    private List<BlogMedia> media = new ArrayList<>();
 
     // Convenience method to get tag names as List<String> for JSON serialization
     @JsonProperty("tags")
@@ -55,16 +88,37 @@ public class BlogPost {
     }
 
     // Convenience method to set tags from List<String>
-    public void setTags(List<String> tags) {
-        this.blogTags.clear();
+    public void setTags(@Nullable List<String> tags) {
+        this.blogTags = new HashSet<>();
         if (tags != null) {
             for (String tag : tags) {
-                BlogTag blogTag = new BlogTag();
-                blogTag.setTagName(tag.toLowerCase());
-                blogTag.setBlogPost(this);
-                this.blogTags.add(blogTag);
+                if (tag != null) {
+                    BlogTag blogTag = new BlogTag();
+                    blogTag.setTagName(tag.toLowerCase());
+                    blogTag.setBlogPost(this);
+                    this.blogTags.add(blogTag);
+                }
             }
         }
+    }
+
+    // Get media items as DTOs for JSON serialization
+    @JsonProperty("media")
+    public List<MediaDTO> getMediaDTOs() {
+        return media.stream()
+                .map(MediaDTO::fromEntity)
+                .collect(Collectors.toList());
+    }
+
+    // Get cover image (first media with displayOrder = 0)
+    @JsonProperty("coverImage")
+    @Nullable
+    public CoverImageDTO getCoverImage() {
+        return media.stream()
+                .filter(m -> m.getDisplayOrder() != null && m.getDisplayOrder() == 0)
+                .findFirst()
+                .map(CoverImageDTO::fromEntity)
+                .orElse(null);
     }
 
 }

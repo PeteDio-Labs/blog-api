@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org"
+      xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout"
+      xmlns:sec="http://www.thymeleaf.org/extras/spring-security">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title layout:title-pattern="$CONTENT_TITLE - $LAYOUT_TITLE">Blog Admin</title>
+    <link rel="icon" href="data:,">
+
+    <!-- Neon Theme CSS -->
+    <link rel="stylesheet" th:href="@{/admin/css/neon-theme.css}">
+    <!-- Markdown Preview CSS -->
+    <link rel="stylesheet" th:href="@{/admin/css/markdown-preview.css}">
+
+    <!-- Additional page-specific CSS -->
+    <th:block layout:fragment="extra-css"></th:block>
+</head>
+<body>
+    <!-- Environment Banner (only show in dev and staging) -->
+    <div class="env-banner" 
+         th:if="${@environment.getProperty('app.environment') == 'dev' or @environment.getProperty('app.environment') == 'stage'}"
+         th:classappend="${@environment.getProperty('app.environment') == 'dev' ? 'env-dev' : 'env-stage'}">
+        <div class="container">
+            <span class="env-icon">⚠</span>
+            <span class="env-text" th:text="${@environment.getProperty('app.environment') == 'dev' ? 'DEVELOPMENT ENVIRONMENT' : 'STAGING ENVIRONMENT'}">DEVELOPMENT ENVIRONMENT</span>
+            <span class="env-icon">⚠</span>
+        </div>
+    </div>
+
+    <!-- Header Navigation (only show when authenticated) -->
+    <header sec:authorize="isAuthenticated()" class="admin-header">
+        <div class="container">
+            <div class="header-content">
+                <h1 class="logo">
+                    <span class="neon-text">BLOG</span>
+                    <span class="sub-text">ADMIN</span>
+                </h1>
+
+                <nav class="main-nav">
+                    <a th:href="@{/manage/posts}">
+                        <span class="nav-icon">📝</span>
+                        Posts
+                    </a>
+                    <a th:href="@{/manage/media}">
+                        <span class="nav-icon">🖼️</span>
+                        Media
+                    </a>
+                </nav>
+
+                <div class="user-menu">
+                    <span class="username" sec:authentication="name">Admin</span>
+                    <form th:action="@{/manage/logout}" method="post" style="display: inline;">
+                        <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}"/>
+                        <button type="submit" class="btn-logout">Logout</button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <!-- Flash Messages -->
+    <div class="flash-messages" th:if="${success} or ${error}">
+        <div class="container">
+            <div class="alert alert-success" th:if="${success}">
+                <span class="icon">✓</span>
+                <span th:text="${success}">Success message</span>
+            </div>
+            <div class="alert alert-error" th:if="${error}">
+                <span class="icon">✗</span>
+                <span th:text="${error}">Error message</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Main Content -->
+    <main class="main-content">
+        <div class="container">
+            <div layout:fragment="content">
+                <!-- Page content will be inserted here -->
+            </div>
+        </div>
+    </main>
+
+    <!-- Footer -->
+    <footer class="admin-footer">
+        <div class="container">
+            <p class="footer-text">
+                Blog Admin Panel &copy; 2025
+                <span class="separator">•</span>
+                Environment: <span class="env-badge" 
+                                   th:text="${@environment.getProperty('app.environment', 'dev')}"
+                                   th:classappend="${@environment.getProperty('app.environment') == 'dev' ? 'badge-dev' : (@environment.getProperty('app.environment') == 'stage' ? 'badge-stage' : 'badge-prod')}">dev</span>
+                <span class="separator">•</span>
+                Version: <span th:text="${@environment.getProperty('app.version', '1.0.0')}">1.0.0</span>
+            </p>
+        </div>
+    </footer>
+
+    <!-- Base JavaScript -->
+    <script th:src="@{/admin/js/admin-utils.js}"></script>
+
+    <!-- Additional page-specific JavaScript -->
+    <th:block layout:fragment="extra-js"></th:block>
+</body>
+</html>

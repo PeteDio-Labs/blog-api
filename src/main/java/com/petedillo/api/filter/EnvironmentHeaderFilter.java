@@ -19,8 +19,16 @@ public class EnvironmentHeaderFilter implements Filter {
             throws IOException, ServletException {
 
         HttpServletResponse httpResponse = (HttpServletResponse) response;
-        httpResponse.setHeader("X-Environment", appConfig.getEnvironment());
-        httpResponse.setHeader("X-API-Version", appConfig.getVersion());
+
+        String environment = appConfig.getEnvironment();
+        String version = appConfig.getVersion();
+
+        if (environment != null) {
+            httpResponse.setHeader("X-Environment", environment);
+        }
+        if (version != null) {
+            httpResponse.setHeader("X-API-Version", version);
+        }
 
         chain.doFilter(request, response);
     }

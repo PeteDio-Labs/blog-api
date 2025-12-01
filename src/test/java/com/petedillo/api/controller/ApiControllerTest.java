@@ -1,14 +1,18 @@
 package com.petedillo.api.controller;
 
 import com.petedillo.api.config.AppConfig;
+import com.petedillo.api.config.SecurityConfig;
 import com.petedillo.api.exception.ResourceNotFoundException;
+import com.petedillo.api.model.BlogMedia;
 import com.petedillo.api.model.BlogPost;
 import com.petedillo.api.service.BlogPostService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
-import org.springframework.boot.test.mock.mockito.MockBean;
+import org.springframework.context.annotation.Import;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
+import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
 
 import javax.sql.DataSource;
@@ -24,18 +28,20 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
 @WebMvcTest(ApiController.class)
+@Import(SecurityConfig.class)
+@ActiveProfiles("test")
 class ApiControllerTest {
 
     @Autowired
     private MockMvc mockMvc;
 
-    @MockBean
+    @MockitoBean
     private BlogPostService blogPostService;
 
-    @MockBean
+    @MockitoBean
     private DataSource dataSource;
 
-    @MockBean
+    @MockitoBean
     private AppConfig appConfig;
 
     private BlogPost testPost;
@@ -51,6 +57,17 @@ class ApiControllerTest {
         testPost.setStatus("published");
         testPost.setPublishedAt(LocalDateTime.now());
         testPost.setTags(Arrays.asList("java", "spring-boot"));
+        
+        // Add test media
+        BlogMedia coverImage = new BlogMedia();
+        coverImage.setId(1L);
+        coverImage.setBlogPost(testPost);
+        coverImage.setMediaType(BlogMedia.MediaType.EXTERNAL_IMAGE);
+        coverImage.setExternalUrl("https://example.com/cover.jpg");
+        coverImage.setDisplayOrder(0);
+        coverImage.setAltText("Test cover image");
+        coverImage.setCaption("Test caption");
+        testPost.getMedia().add(coverImage);
 
         // Mock AppConfig
         when(appConfig.getEnvironment()).thenReturn("dev");
@@ -118,8 +135,12 @@ class ApiControllerTest {
             .andExpect(jsonPath("$[0].title").value("Test Post"))
             .andExpect(jsonPath("$[0].slug").value("test-post"))
             .andExpect(jsonPath("$[0].tags", hasSize(2)))
-            .andExpect(jsonPath("$[0].tags[0]").value("java"))
-            .andExpect(jsonPath("$[0].tags[1]").value("spring-boot"));
+            .andExpect(jsonPath("$[0].tags", containsInAnyOrder("java", "spring-boot")))
+            .andExpect(jsonPath("$[0].media", hasSize(1)))
+            .andExpect(jsonPath("$[0].media[0].type").value("EXTERNAL_IMAGE"))
+            .andExpect(jsonPath("$[0].media[0].url").value("https://example.com/cover.jpg"))
+            .andExpect(jsonPath("$[0].coverImage.url").value("https://example.com/cover.jpg"))
+            .andExpect(jsonPath("$[0].coverImage.altText").value("Test cover image"));
 
         verify(blogPostService).getAllPosts();
     }
@@ -149,7 +170,9 @@ class ApiControllerTest {
             .andExpect(jsonPath("$.title").value("Test Post"))
             .andExpect(jsonPath("$.content").value("Test content"))
             .andExpect(jsonPath("$.tags", hasSize(2)))
-            .andExpect(jsonPath("$.tags[0]").value("java"));
+            .andExpect(jsonPath("$.tags", containsInAnyOrder("java", "spring-boot")))
+            .andExpect(jsonPath("$.media", hasSize(1)))
+            .andExpect(jsonPath("$.coverImage.url").value("https://example.com/cover.jpg"));
 
         verify(blogPostService).getPostBySlug("test-post");
     }

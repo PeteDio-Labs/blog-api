@@ -1,8 +1,10 @@
 -- ============================================================================
 -- Migration: V7__insert_sample_data.sql
 -- Description: Insert sample blog post for development and testing
--- Author: Pete Dillo
--- Date: 2025-10-28
+-- Sprint: Sprint 1
+-- Author: Pedro Delgadillo
+-- Date: November 17, 2025
+-- Documentation: 29 files, 368KB
 -- Note: This migration should only run in dev environment
 -- ============================================================================
 
@@ -72,3 +74,9 @@ BEGIN
         (post_id, 'proxmox');
 END $$
 ;
+
+-- ============================================================================
+-- Solo Developer: Pedro Delgadillo
+-- Documentation: 29 files, 368KB
+-- Completion Date: November 17, 2025
+-- ============================================================================

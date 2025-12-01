@@ -1,33 +1,270 @@
 package com.petedillo.api.service;
 
 import com.petedillo.api.exception.ResourceNotFoundException;
+import com.petedillo.api.model.BlogMedia;
 import com.petedillo.api.model.BlogPost;
+import com.petedillo.api.model.BlogTag;
+import com.petedillo.api.repository.BlogMediaRepository;
 import com.petedillo.api.repository.BlogPostRepository;
+import com.petedillo.api.repository.BlogTagRepository;
+import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDateTime;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 @Service
 public class BlogPostService {
 
     private final BlogPostRepository blogPostRepository;
+    private final BlogTagRepository blogTagRepository;
+    private final BlogMediaRepository blogMediaRepository;
+    private final FileStorageService fileStorageService;
 
     @Autowired
-    public BlogPostService(BlogPostRepository blogPostRepository) {
+    public BlogPostService(BlogPostRepository blogPostRepository,
+                           BlogTagRepository blogTagRepository,
+                           BlogMediaRepository blogMediaRepository,
+                           FileStorageService fileStorageService) {
         this.blogPostRepository = blogPostRepository;
+        this.blogTagRepository = blogTagRepository;
+        this.blogMediaRepository = blogMediaRepository;
+        this.fileStorageService = fileStorageService;
     }
 
     public List<BlogPost> getAllPosts() {
         return blogPostRepository.findAll();
     }
 
-    public BlogPost getPostBySlug(String slug) {
-        return blogPostRepository.findBySlug(slug)
-            .orElseThrow(() -> new ResourceNotFoundException("Post not found with slug: " + slug));
+    @Nullable
+    public BlogPost getPostById(@NotNull Long id) {
+        return blogPostRepository.findById(id).orElse(null);
     }
 
-    public List<BlogPost> searchPosts(String searchTerm) {
+    @NotNull
+    @Transactional  // Ensure both queries run in same persistence context
+    public BlogPost getPostBySlug(@NotNull String slug) {
+        // First query: load post with tags
+        BlogPost post = blogPostRepository.findBySlugWithTags(slug)
+            .orElseThrow(() -> new ResourceNotFoundException("Post not found with slug: " + slug));
+
+        // Second query: load media (attaches to same BlogPost in persistence context)
+        blogPostRepository.findBySlugWithMedia(slug);
+
+        return post;
+    }
+
+    @NotNull
+    public List<BlogPost> searchPosts(@NotNull String searchTerm) {
         return blogPostRepository.searchByTitleOrSlug(searchTerm);
+    }
+
+    // === ADMIN METHODS FOR CRUD OPERATIONS ===
+
+    /**
+     * Create a new blog post with tags
+     */
+    @Transactional
+    @NotNull
+    public BlogPost createPost(@NotNull String title, @NotNull String content, @Nullable String excerpt,
+                               @Nullable String status, @Nullable Set<String> tagNames) {
+        BlogPost post = new BlogPost();
+        post.setTitle(title);
+        post.setSlug(generateSlug(title));
+        post.setContent(content);
+        post.setExcerpt(excerpt);
+        post.setStatus(status != null ? status : "draft");
+        post.setCreatedAt(LocalDateTime.now());
+        post.setPublishedAt(LocalDateTime.now());
+        post.setUpdatedAt(LocalDateTime.now());
+
+        // Save post first to get ID
+        BlogPost savedPost = blogPostRepository.save(post);
+
+        // Process tags (normalized to lowercase, alphabetically ordered)
+        if (tagNames != null && !tagNames.isEmpty()) {
+            Set<BlogTag> tags = new HashSet<>();
+            for (String tagName : tagNames) {
+                if (tagName != null && !tagName.trim().isEmpty()) {
+                    String normalizedTag = tagName.trim().toLowerCase();
+
+                    // Create new tag for this post
+                    BlogTag newTag = new BlogTag();
+                    newTag.setTagName(normalizedTag);
+                    newTag.setBlogPost(savedPost);
+                    
+                    tags.add(newTag);
+                }
+            }
+            savedPost.setBlogTags(tags);
+        }
+
+        return savedPost;
+    }
+
+    /**
+     * Update an existing blog post
+     */
+    @Transactional
+    @NotNull
+    public BlogPost updatePost(@NotNull Long id, @NotNull String title, @NotNull String content,
+                               @Nullable String excerpt, @Nullable String status, @Nullable Set<String> tagNames) {
+        BlogPost post = blogPostRepository.findById(id)
+            .orElseThrow(() -> new ResourceNotFoundException("Post not found: " + id));
+
+        post.setTitle(title);
+        post.setContent(content);
+        post.setExcerpt(excerpt);
+        if (status != null) {
+            post.setStatus(status);
+        }
+        post.setUpdatedAt(LocalDateTime.now());
+
+        // Update tags (modify collection in place to preserve Hibernate tracking)
+        Set<BlogTag> existingTags = post.getBlogTags();
+        if (existingTags == null) {
+            existingTags = new HashSet<>();
+            post.setBlogTags(existingTags);
+        }
+        
+        // Remove tags that are no longer present
+        existingTags.removeIf(tag -> tagNames == null || !tagNames.contains(tag.getTagName()));
+
+        // Add new tags
+        if (tagNames != null && !tagNames.isEmpty()) {
+            Set<String> existingTagNames = existingTags.stream()
+                .map(BlogTag::getTagName)
+                .collect(Collectors.toSet());
+            
+            for (String tagName : tagNames) {
+                if (tagName != null && !tagName.trim().isEmpty()) {
+                    String normalizedTag = tagName.trim().toLowerCase();
+                    
+                    // Only add if not already present
+                    if (!existingTagNames.contains(normalizedTag)) {
+                        BlogTag tag = blogTagRepository.findByTagNameIgnoreCase(normalizedTag)
+                            .orElseGet(() -> {
+                                BlogTag newTag = new BlogTag();
+                                newTag.setTagName(normalizedTag);
+                                newTag.setBlogPost(post);
+                                return newTag;
+                            });
+
+                        // Set the post association
+                        tag.setBlogPost(post);
+                        existingTags.add(tag);
+                    }
+                }
+            }
+        }
+
+        return blogPostRepository.save(post);
+    }
+
+    /**
+     * Delete a blog post and all associated media files
+     */
+    @Transactional
+    public void deletePost(@NotNull Long id) {
+        BlogPost post = blogPostRepository.findById(id)
+            .orElseThrow(() -> new ResourceNotFoundException("Post not found: " + id));
+
+        // Delete physical files for local media
+        List<BlogMedia> mediaList = blogMediaRepository.findByBlogPostIdOrderByDisplayOrderAsc(id);
+        for (BlogMedia media : mediaList) {
+            if (media.isLocalFile() && media.getFilePath() != null) {
+                int lastSlashIndex = media.getFilePath().lastIndexOf('/');
+                if (lastSlashIndex >= 0 && lastSlashIndex < media.getFilePath().length() - 1) {
+                    String filename = media.getFilePath().substring(lastSlashIndex + 1);
+                    fileStorageService.deleteFile(filename);
+                }
+            }
+        }
+
+        // Delete post (cascade will handle media and tags in database)
+        blogPostRepository.delete(post);
+    }
+
+    /**
+     * Set cover image for a post by updating media item with displayOrder = 0
+     */
+    @Transactional
+    @NotNull
+    public BlogPost setCoverImage(@NotNull Long postId, @NotNull Long mediaId) {
+        BlogPost post = blogPostRepository.findById(postId)
+            .orElseThrow(() -> new ResourceNotFoundException("Post not found: " + postId));
+
+        BlogMedia newCoverMedia = blogMediaRepository.findById(mediaId)
+            .orElseThrow(() -> new ResourceNotFoundException("Media not found: " + mediaId));
+
+        // Validate media belongs to this post
+        if (newCoverMedia.getBlogPost() == null || newCoverMedia.getBlogPost().getId() == null ||
+            !newCoverMedia.getBlogPost().getId().equals(postId)) {
+            throw new IllegalArgumentException("Media does not belong to this post");
+        }
+
+        // Find current cover image and reset its display order
+        List<BlogMedia> mediaList = blogMediaRepository.findByBlogPostIdOrderByDisplayOrderAsc(postId);
+        for (BlogMedia media : mediaList) {
+            if (media.getDisplayOrder() != null && media.getDisplayOrder() == 0 &&
+                media.getId() != null && !media.getId().equals(mediaId)) {
+                // Move old cover image to end
+                media.setDisplayOrder(mediaList.size());
+                blogMediaRepository.save(media);
+            }
+        }
+
+        // Set new cover image
+        newCoverMedia.setDisplayOrder(0);
+        blogMediaRepository.save(newCoverMedia);
+
+        post.setUpdatedAt(LocalDateTime.now());
+        return blogPostRepository.save(post);
+    }
+
+    /**
+     * Get posts by tag (case-insensitive)
+     */
+    @NotNull
+    public List<BlogPost> getPostsByTag(@NotNull String tagName) {
+        return blogPostRepository.findByBlogTags_TagNameIgnoreCase(tagName.trim().toLowerCase());
+    }
+
+    /**
+     * Get all tags ordered alphabetically
+     */
+    public List<BlogTag> getAllTags() {
+        return blogTagRepository.findAllByOrderByTagNameAsc();
+    }
+
+    /**
+     * Get distinct tag names (no duplicates) ordered alphabetically
+     */
+    public Set<String> getDistinctTagNames() {
+        return blogTagRepository.findDistinctTagNames();
+    }
+
+    /**
+     * Get all posts ordered by published date descending
+     */
+    public List<BlogPost> getAllPostsSorted() {
+        return blogPostRepository.findAllByOrderByPublishedAtDesc();
+    }
+
+    /**
+     * Generate URL-friendly slug from title
+     */
+    private String generateSlug(String title) {
+        return title.toLowerCase()
+                .replaceAll("[^a-z0-9\\s-]", "")
+                .replaceAll("\\s+", "-")
+                .replaceAll("-+", "-")
+                .replaceAll("^-|-$", "");
     }
 }

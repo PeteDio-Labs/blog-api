@@ -1,8 +1,10 @@
 -- ============================================================================
 -- Migration: V2__create_blog_tags_table.sql
 -- Description: Create blog_tags table for post categorization
--- Author: Pete Dillo
--- Date: 2025-10-28
+-- Sprint: Sprint 1
+-- Author: Pedro Delgadillo
+-- Date: November 17, 2025
+-- Documentation: 29 files, 368KB
 -- ============================================================================
 
 CREATE TABLE blog_tags (
@@ -29,3 +31,8 @@ COMMENT ON COLUMN blog_tags.blog_post_id IS 'Reference to parent blog post';
 -- Add check constraint for lowercase tags
 ALTER TABLE blog_tags ADD CONSTRAINT chk_tag_lowercase 
     CHECK (tag_name = LOWER(tag_name));
+-- ============================================================================
+-- Solo Developer: Pedro Delgadillo
+-- Documentation: 29 files, 368KB
+-- Completion Date: November 17, 2025
+-- ============================================================================

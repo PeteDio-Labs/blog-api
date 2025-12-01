@@ -1,8 +1,10 @@
 -- ============================================================================
 -- Migration: V5__create_updated_at_trigger.sql
 -- Description: Automatically update updated_at timestamp on blog_posts
--- Author: Pete Dillo
--- Date: 2025-10-28
+-- Sprint: Sprint 1
+-- Author: Pedro Delgadillo
+-- Date: November 17, 2025
+-- Documentation: 29 files, 368KB
 -- ============================================================================
 
 -- Create function to update timestamp
@@ -21,3 +23,8 @@ CREATE TRIGGER tr_blog_posts_updated_at
     EXECUTE FUNCTION update_updated_at_column();
 
 COMMENT ON FUNCTION update_updated_at_column() IS 'Automatically updates updated_at timestamp';
+-- ============================================================================
+-- Solo Developer: Pedro Delgadillo
+-- Documentation: 29 files, 368KB
+-- Completion Date: November 17, 2025
+-- ============================================================================
