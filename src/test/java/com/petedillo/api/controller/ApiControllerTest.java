@@ -67,7 +67,7 @@ class ApiControllerTest {
         coverImage.setDisplayOrder(0);
         coverImage.setAltText("Test cover image");
         coverImage.setCaption("Test caption");
-        testPost.getMedia().add(coverImage);
+        testPost.addMedia(coverImage);
 
         // Mock AppConfig
         when(appConfig.getEnvironment()).thenReturn("dev");

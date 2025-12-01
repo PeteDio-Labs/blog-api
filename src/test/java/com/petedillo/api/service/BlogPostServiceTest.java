@@ -60,7 +60,7 @@ class BlogPostServiceTest {
         coverImage.setExternalUrl("https://example.com/cover.jpg");
         coverImage.setDisplayOrder(0);
         coverImage.setAltText("Cover image");
-        testPost.getMedia().add(coverImage);
+        testPost.addMedia(coverImage);
     }
 
     @Test
@@ -126,7 +126,7 @@ class BlogPostServiceTest {
         media2.setMediaType(BlogMedia.MediaType.IMAGE);
         media2.setFilePath("images/test.jpg");
         media2.setDisplayOrder(1);
-        testPost.getMedia().add(media2);
+        testPost.addMedia(media2);
 
         when(blogPostRepository.findBySlugWithTags("test-post"))
             .thenReturn(Optional.of(testPost));
@@ -442,7 +442,7 @@ class BlogPostServiceTest {
             media.setMediaType(BlogMedia.MediaType.EXTERNAL_IMAGE);
             media.setExternalUrl("https://example.com/test" + i + ".jpg");
             media.setDisplayOrder(i);
-            post.getMedia().add(media);
+            post.addMedia(media);
         }
 
         // Mock the new two-query approach
@@ -498,8 +498,8 @@ class BlogPostServiceTest {
         media2.setExternalUrl("https://example.com/test2.jpg");
         media2.setDisplayOrder(1);
 
-        post.getMedia().add(media1);
-        post.getMedia().add(media2);
+        post.addMedia(media1);
+        post.addMedia(media2);
 
         // Mock the new two-query approach
         when(blogPostRepository.findBySlugWithTags("test-post-dual"))

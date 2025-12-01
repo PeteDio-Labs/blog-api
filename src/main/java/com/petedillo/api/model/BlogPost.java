@@ -5,6 +5,7 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import com.petedillo.api.dto.CoverImageDTO;
 import com.petedillo.api.dto.MediaDTO;
 import jakarta.persistence.*;
+import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.Setter;
 import org.jetbrains.annotations.NotNull;
@@ -12,6 +13,7 @@ import org.jetbrains.annotations.Nullable;
 
 import java.time.LocalDateTime;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
@@ -77,7 +79,24 @@ public class BlogPost {
 
     @OneToMany(mappedBy = "blogPost", cascade = CascadeType.ALL, orphanRemoval = true)
     @OrderBy("displayOrder ASC")
+    @Getter(AccessLevel.NONE)
     private List<BlogMedia> media = new ArrayList<>();
+
+    /**
+     * Returns an unmodifiable view of the media list to prevent external modification.
+     * Use {@link #addMedia(BlogMedia)} to add media items.
+     */
+    public List<BlogMedia> getMedia() {
+        return Collections.unmodifiableList(media);
+    }
+
+    /**
+     * Adds a media item to this blog post.
+     * @param mediaItem the media item to add
+     */
+    public void addMedia(BlogMedia mediaItem) {
+        media.add(mediaItem);
+    }
 
     // Convenience method to get tag names as List<String> for JSON serialization
     @JsonProperty("tags")

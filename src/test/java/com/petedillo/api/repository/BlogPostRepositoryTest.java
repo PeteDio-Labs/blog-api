@@ -192,8 +192,8 @@ class BlogPostRepositoryTest {
         media2.setDisplayOrder(1);
         media2.setAltText("Second image");
 
-        testPost.getMedia().add(media1);
-        testPost.getMedia().add(media2);
+        testPost.addMedia(media1);
+        testPost.addMedia(media2);
 
         // Act
         BlogPost saved = blogPostRepository.save(testPost);
@@ -215,7 +215,7 @@ class BlogPostRepositoryTest {
         media.setMediaType(BlogMedia.MediaType.IMAGE);
         media.setFilePath("images/test.jpg");
         media.setDisplayOrder(0);
-        testPost.getMedia().add(media);
+        testPost.addMedia(media);
 
         BlogPost saved = blogPostRepository.save(testPost);
         Long id = saved.getId();
@@ -237,7 +237,7 @@ class BlogPostRepositoryTest {
         media.setMediaType(BlogMedia.MediaType.EXTERNAL_IMAGE);
         media.setExternalUrl("https://example.com/test.jpg");
         media.setDisplayOrder(0);
-        testPost.getMedia().add(media);
+        testPost.addMedia(media);
         testPost.setTags(Arrays.asList("test"));
         
         blogPostRepository.save(testPost);
@@ -277,9 +277,9 @@ class BlogPostRepositoryTest {
         media2.setDisplayOrder(1);
 
         // Add in non-sequential order
-        testPost.getMedia().add(media3);
-        testPost.getMedia().add(media1);
-        testPost.getMedia().add(media2);
+        testPost.addMedia(media3);
+        testPost.addMedia(media1);
+        testPost.addMedia(media2);
 
         // Act - save and retrieve
         blogPostRepository.save(testPost);
@@ -316,7 +316,7 @@ class BlogPostRepositoryTest {
             media.setMediaType(BlogMedia.MediaType.EXTERNAL_IMAGE);
             media.setExternalUrl("https://example.com/test" + i + ".jpg");
             media.setDisplayOrder(i);
-            testPost.getMedia().add(media);
+            testPost.addMedia(media);
         }
         testPost.setTags(Arrays.asList("java", "spring", "jpa"));
 
@@ -345,7 +345,7 @@ class BlogPostRepositoryTest {
             media.setExternalUrl("https://example.com/test" + i + ".jpg");
             media.setDisplayOrder(i);
             media.setAltText("Image " + i);
-            testPost.getMedia().add(media);
+            testPost.addMedia(media);
         }
         testPost.setTags(Arrays.asList("tag1"));
 
@@ -384,8 +384,8 @@ class BlogPostRepositoryTest {
         media2.setExternalUrl("https://example.com/test2.jpg");
         media2.setDisplayOrder(1);
 
-        testPost.getMedia().add(media1);
-        testPost.getMedia().add(media2);
+        testPost.addMedia(media1);
+        testPost.addMedia(media2);
         testPost.setTags(Arrays.asList("tag1", "tag2"));
 
         blogPostRepository.save(testPost);
