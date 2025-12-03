@@ -18,9 +18,9 @@
 FROM eclipse-temurin:21-jre-alpine
 WORKDIR /app
 
-# Copy the pre-built JAR from the build context
-# (GitHub Actions workflow copies it here before docker build)
-COPY target/api-*.jar app.jar
+# Copy the pre-built JAR from the build context root
+# (GitHub Actions workflow copies it: cp target/*.jar .)
+COPY api-*.jar app.jar
 
 # Optional: Add build metadata
 ARG BUILD_DATE
