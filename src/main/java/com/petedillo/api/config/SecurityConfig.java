@@ -4,8 +4,12 @@ import com.petedillo.api.service.AdminUserDetailsService;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.core.annotation.Order;
+import org.springframework.security.authentication.AuthenticationManager;
+import org.springframework.security.authentication.ProviderManager;
+import org.springframework.security.authentication.dao.DaoAuthenticationProvider;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
 
 @Configuration
@@ -13,9 +17,23 @@ import org.springframework.security.web.SecurityFilterChain;
 public class SecurityConfig {
 
     private final AdminUserDetailsService adminUserDetailsService;
+    private final PasswordEncoder passwordEncoder;
 
-    public SecurityConfig(AdminUserDetailsService adminUserDetailsService) {
+    public SecurityConfig(AdminUserDetailsService adminUserDetailsService, PasswordEncoder passwordEncoder) {
         this.adminUserDetailsService = adminUserDetailsService;
+        this.passwordEncoder = passwordEncoder;
+    }
+
+    /**
+     * Configure AuthenticationManager with DaoAuthenticationProvider
+     * This is critical for form login to work - it tells Spring Security how to authenticate users
+     */
+    @Bean
+    public AuthenticationManager authenticationManager() {
+        DaoAuthenticationProvider provider = new DaoAuthenticationProvider();
+        provider.setUserDetailsService(adminUserDetailsService);
+        provider.setPasswordEncoder(passwordEncoder);
+        return new ProviderManager(provider);
     }
 
     /**
