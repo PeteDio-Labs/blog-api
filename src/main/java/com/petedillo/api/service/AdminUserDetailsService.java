@@ -26,7 +26,7 @@ public class AdminUserDetailsService implements UserDetailsService {
 
     @Override
     public UserDetails loadUserByUsername(String username) throws UsernameNotFoundException {
-        if (!adminUsername.equals(username)) {
+        if (username == null || username.trim().isEmpty() || !adminUsername.equals(username)) {
             throw new UsernameNotFoundException("User not found: " + username);
         }
 

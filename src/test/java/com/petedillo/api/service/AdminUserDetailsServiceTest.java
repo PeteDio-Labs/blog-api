@@ -57,8 +57,8 @@ class AdminUserDetailsServiceTest {
         // Then - both should have the same encoded password (proving it's cached)
         assertThat(firstLoad.getPassword()).isEqualTo(secondLoad.getPassword());
 
-        // And the password should be BCrypt encoded (starts with $2a$ or $2b$)
-        assertThat(firstLoad.getPassword()).matches("^\\$2[ab]\\$.+");
+        // And the password should be BCrypt encoded (starts with $2a$, $2b$, or $2y$)
+        assertThat(firstLoad.getPassword()).matches("^\\$2[aby]\\$.+");
     }
 
     @Test
