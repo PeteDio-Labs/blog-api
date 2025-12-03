@@ -1,5 +1,6 @@
 package com.petedillo.api.config;
 
+import com.petedillo.api.service.AdminUserDetailsService;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.core.annotation.Order;
@@ -12,6 +13,12 @@ import org.springframework.security.web.SecurityFilterChain;
 @Configuration
 @EnableWebSecurity
 public class SecurityConfig {
+
+    private final AdminUserDetailsService adminUserDetailsService;
+
+    public SecurityConfig(AdminUserDetailsService adminUserDetailsService) {
+        this.adminUserDetailsService = adminUserDetailsService;
+    }
 
     @Bean
     public PasswordEncoder passwordEncoder() {
@@ -49,6 +56,7 @@ public class SecurityConfig {
             //     .loginPage("/manage/login")
             //     .defaultSuccessUrl("/manage/posts", true)
             // )
+            .userDetailsService(adminUserDetailsService)
             .csrf(csrf -> csrf
                 .ignoringRequestMatchers("/manage/api/**") // AJAX endpoints
             );

@@ -18,6 +18,7 @@ public class AdminUserDetailsService implements UserDetailsService {
     private String adminPassword;
 
     private final PasswordEncoder passwordEncoder;
+    private String encodedPassword;
 
     public AdminUserDetailsService(PasswordEncoder passwordEncoder) {
         this.passwordEncoder = passwordEncoder;
@@ -29,9 +30,15 @@ public class AdminUserDetailsService implements UserDetailsService {
             throw new UsernameNotFoundException("User not found: " + username);
         }
 
+        // Encode password once and cache it
+        // BCrypt generates different hashes each time, so we need to encode once and reuse
+        if (encodedPassword == null) {
+            encodedPassword = passwordEncoder.encode(adminPassword);
+        }
+
         return User.builder()
             .username(adminUsername)
-            .password(passwordEncoder.encode(adminPassword))
+            .password(encodedPassword)
             .roles("ADMIN")
             .build();
     }
