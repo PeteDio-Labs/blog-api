@@ -1,7 +1,9 @@
 package com.petedillo.api.controller;
 
 import com.petedillo.api.config.AppConfig;
+import com.petedillo.api.config.PasswordEncoderConfig;
 import com.petedillo.api.config.SecurityConfig;
+import com.petedillo.api.service.AdminUserDetailsService;
 import com.petedillo.api.service.FileStorageService;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
@@ -20,7 +22,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
 @WebMvcTest(MediaController.class)
-@Import(SecurityConfig.class)
+@Import({SecurityConfig.class, PasswordEncoderConfig.class})
 @ActiveProfiles("test")
 class MediaControllerTest {
 
@@ -32,6 +34,9 @@ class MediaControllerTest {
 
     @MockitoBean
     private AppConfig appConfig;
+
+    @MockitoBean
+    private AdminUserDetailsService adminUserDetailsService;
 
     @TempDir
     Path tempDir;

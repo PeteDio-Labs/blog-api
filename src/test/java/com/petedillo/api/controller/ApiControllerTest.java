@@ -1,10 +1,12 @@
 package com.petedillo.api.controller;
 
 import com.petedillo.api.config.AppConfig;
+import com.petedillo.api.config.PasswordEncoderConfig;
 import com.petedillo.api.config.SecurityConfig;
 import com.petedillo.api.exception.ResourceNotFoundException;
 import com.petedillo.api.model.BlogMedia;
 import com.petedillo.api.model.BlogPost;
+import com.petedillo.api.service.AdminUserDetailsService;
 import com.petedillo.api.service.BlogPostService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -28,7 +30,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
 @WebMvcTest(ApiController.class)
-@Import(SecurityConfig.class)
+@Import({SecurityConfig.class, PasswordEncoderConfig.class})
 @ActiveProfiles("test")
 class ApiControllerTest {
 
@@ -43,6 +45,9 @@ class ApiControllerTest {
 
     @MockitoBean
     private AppConfig appConfig;
+
+    @MockitoBean
+    private AdminUserDetailsService adminUserDetailsService;
 
     private BlogPost testPost;
 
