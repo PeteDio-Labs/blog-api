@@ -1,6 +1,5 @@
 package com.petedillo.api.model;
 
-import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.petedillo.api.dto.CoverImageDTO;
 import com.petedillo.api.dto.MediaDTO;
@@ -20,7 +19,7 @@ import java.util.stream.Collectors;
 @NamedEntityGraphs({
     @NamedEntityGraph(
         name = "BlogPost.tags",
-        attributeNodes = @NamedAttributeNode("blogTags")
+        attributeNodes = @NamedAttributeNode("tags")
     ),
     @NamedEntityGraph(
         name = "BlogPost.media",
@@ -71,9 +70,13 @@ public class BlogPost {
     @Nullable
     private LocalDateTime publishedAt;
 
-    @JsonIgnore
-    @OneToMany(mappedBy = "blogPost", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
-    private Set<BlogTag> blogTags = new HashSet<>();
+    @ManyToMany(cascade = {CascadeType.MERGE}, fetch = FetchType.LAZY)
+    @JoinTable(
+        name = "post_tags",
+        joinColumns = @JoinColumn(name = "post_id"),
+        inverseJoinColumns = @JoinColumn(name = "tag_id")
+    )
+    private Set<Tag> tags = new HashSet<>();
 
     @OneToMany(mappedBy = "blogPost", cascade = CascadeType.ALL, orphanRemoval = true)
     @OrderBy("displayOrder ASC")
@@ -81,25 +84,31 @@ public class BlogPost {
 
     // Convenience method to get tag names as List<String> for JSON serialization
     @JsonProperty("tags")
-    public List<String> getTags() {
-        return blogTags.stream()
-                .map(BlogTag::getTagName)
+    public List<String> getTagNames() {
+        return tags.stream()
+                .map(Tag::getName)
                 .collect(Collectors.toList());
     }
 
     // Convenience method to set tags from List<String>
-    public void setTags(@Nullable List<String> tags) {
-        this.blogTags = new HashSet<>();
-        if (tags != null) {
-            for (String tag : tags) {
-                if (tag != null) {
-                    BlogTag blogTag = new BlogTag();
-                    blogTag.setTagName(tag.toLowerCase());
-                    blogTag.setBlogPost(this);
-                    this.blogTags.add(blogTag);
+    public void setTagNames(@Nullable List<String> tagNames) {
+        this.tags = new HashSet<>();
+        if (tagNames != null) {
+            for (String tagName : tagNames) {
+                if (tagName != null && !tagName.isEmpty()) {
+                    Tag tag = new Tag();
+                    tag.setName(tagName.toLowerCase());
+                    tag.setSlug(tagName.toLowerCase().replaceAll("\\s+", "-"));
+                    tag.setPostCount(1);
+                    this.tags.add(tag);
                 }
             }
         }
+    }
+
+    // Backward compatibility: accept List<String> and convert to Set
+    public void setTags(@Nullable List<String> tagNames) {
+        setTagNames(tagNames);
     }
 
     // Get media items as DTOs for JSON serialization

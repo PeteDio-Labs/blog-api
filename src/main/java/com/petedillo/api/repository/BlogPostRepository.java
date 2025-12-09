@@ -27,7 +27,7 @@ public interface BlogPostRepository extends JpaRepository<BlogPost, Long> {
     // Deprecated: Use findBySlugWithTags and findBySlugWithMedia instead
     // Keeping for backward compatibility during migration
     @Deprecated
-    @Query("SELECT DISTINCT p FROM BlogPost p LEFT JOIN FETCH p.blogTags LEFT JOIN FETCH p.media m WHERE p.slug = :slug ORDER BY m.displayOrder ASC")
+    @Query("SELECT DISTINCT p FROM BlogPost p LEFT JOIN FETCH p.tags LEFT JOIN FETCH p.media m WHERE p.slug = :slug ORDER BY m.displayOrder ASC")
     Optional<BlogPost> findBySlug(@Param("slug") String slug);
 
     // Fix N+1: Load tags with EntityGraph
@@ -40,7 +40,8 @@ public interface BlogPostRepository extends JpaRepository<BlogPost, Long> {
      * Tags are loaded via the join, so use EntityGraph to ensure they're loaded
      */
     @EntityGraph(value = "BlogPost.tags", type = EntityGraph.EntityGraphType.LOAD)
-    List<BlogPost> findByBlogTags_TagNameIgnoreCase(String tagName);
+    @Query("SELECT DISTINCT p FROM BlogPost p JOIN p.tags t WHERE LOWER(t.name) = LOWER(:tagName)")
+    List<BlogPost> findByTags_NameIgnoreCase(@Param("tagName") String tagName);
 
     /**
      * Find all posts ordered by published date descending
@@ -72,4 +73,23 @@ public interface BlogPostRepository extends JpaRepository<BlogPost, Long> {
      * Find posts by title containing (case-insensitive) with pagination
      */
     Page<BlogPost> findByTitleContainingIgnoreCase(String title, Pageable pageable);
+
+    /**
+     * Count posts by status
+     */
+    Long countByStatus(String status);
+
+    /**
+     * Search posts across title, content, and tags by status
+     * Searches are case-insensitive
+     */
+    @EntityGraph(value = "BlogPost.tags", type = EntityGraph.EntityGraphType.LOAD)
+    @Query("SELECT DISTINCT p FROM BlogPost p LEFT JOIN p.tags t WHERE " +
+           "p.status = :status AND " +
+           "(LOWER(p.title) LIKE LOWER(CONCAT('%', :searchTerm, '%')) OR " +
+           "LOWER(p.content) LIKE LOWER(CONCAT('%', :searchTerm, '%')) OR " +
+           "LOWER(t.name) LIKE LOWER(CONCAT('%', :searchTerm, '%')))")
+    Page<BlogPost> searchByStatusAndQuery(@Param("searchTerm") String searchTerm,
+                                           @Param("status") String status,
+                                           Pageable pageable);
 }
