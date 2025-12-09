@@ -17,6 +17,7 @@ import java.util.List;
 public class BlogPostResponse {
     private Long id;
     private String title;
+    private String slug;
     private String content;
     private String excerpt;
     private PostStatus status;
