@@ -2,8 +2,11 @@ package com.petedillo.api.controller.api;
 
 import com.petedillo.api.dto.BlogPostRequest;
 import com.petedillo.api.dto.BlogPostResponse;
+import com.petedillo.api.dto.TagResponse;
 import com.petedillo.api.model.BlogPost;
 import com.petedillo.api.model.PostStatus;
+import com.petedillo.api.model.Tag;
+import com.petedillo.api.repository.TagRepository;
 import com.petedillo.api.service.BlogPostService;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -13,20 +16,24 @@ import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.HashSet;
+import java.util.List;
 import java.util.Set;
+import java.util.stream.Collectors;
 
 /**
  * REST controller for admin blog post management.
  * All endpoints require JWT authentication with ROLE_ADMIN.
  */
 @RestController
-@RequestMapping("/api/v1/admin/posts")
+@RequestMapping("/api/v1/admin")
 public class AdminController {
 
     private final BlogPostService blogPostService;
+    private final TagRepository tagRepository;
 
-    public AdminController(BlogPostService blogPostService) {
+    public AdminController(BlogPostService blogPostService, TagRepository tagRepository) {
         this.blogPostService = blogPostService;
+        this.tagRepository = tagRepository;
     }
 
     /**
@@ -36,8 +43,8 @@ public class AdminController {
      * @param authentication the authenticated user
      * @return the created blog post
      */
-    @PostMapping
-    public ResponseEntity<BlogPostResponse> createPost(@RequestBody BlogPostRequest request, 
+    @PostMapping("/posts")
+    public ResponseEntity<BlogPostResponse> createPost(@RequestBody BlogPostRequest request,
                                                         Authentication authentication) {
         Set<String> tags = request.getTags() != null ? 
                 new HashSet<>(request.getTags()) : new HashSet<>();
@@ -59,7 +66,7 @@ public class AdminController {
      * @param id the blog post ID
      * @return the blog post
      */
-    @GetMapping("/{id}")
+    @GetMapping("/posts/{id}")
     public ResponseEntity<BlogPostResponse> getPost(@PathVariable Long id) {
         BlogPost post = blogPostService.getPostById(id);
         if (post == null) {
@@ -76,7 +83,7 @@ public class AdminController {
      * @param search optional search term
      * @return page of blog posts
      */
-    @GetMapping
+    @GetMapping("/posts")
     public ResponseEntity<Page<BlogPostResponse>> listPosts(
             Pageable pageable,
             @RequestParam(required = false) String status,
@@ -94,7 +101,7 @@ public class AdminController {
      * @param request the update request
      * @return the updated blog post
      */
-    @PutMapping("/{id}")
+    @PutMapping("/posts/{id}")
     public ResponseEntity<BlogPostResponse> updatePost(@PathVariable Long id, 
                                                         @RequestBody BlogPostRequest request) {
         try {
@@ -121,7 +128,7 @@ public class AdminController {
      * @param id the blog post ID
      * @return 204 No Content
      */
-    @DeleteMapping("/{id}")
+    @DeleteMapping("/posts/{id}")
     public ResponseEntity<Void> deletePost(@PathVariable Long id) {
         try {
             blogPostService.deletePost(id);
@@ -132,15 +139,32 @@ public class AdminController {
     }
 
     /**
+     * Get all tags for the tag picker in post editor.
+     * Returns tags ordered by post count (most used first).
+     *
+     * @return list of all tags with their metadata
+     */
+    @GetMapping("/tags")
+    public ResponseEntity<List<TagResponse>> getAllTags() {
+        List<Tag> tags = tagRepository.findAllByOrderByPostCountDesc();
+        List<TagResponse> response = tags.stream()
+                .map(TagResponse::fromEntity)
+                .collect(Collectors.toList());
+        return ResponseEntity.ok(response);
+    }
+
+    /**
      * Convert BlogPost entity to BlogPostResponse DTO.
      */
     private BlogPostResponse toResponse(BlogPost post) {
         BlogPostResponse response = new BlogPostResponse();
         response.setId(post.getId());
         response.setTitle(post.getTitle());
+        response.setSlug(post.getSlug());
         response.setContent(post.getContent());
         response.setExcerpt(post.getExcerpt());
         response.setStatus(PostStatus.valueOf(post.getStatus()));
+        response.setTags(post.getTagNames());
         response.setAuthorName("Admin");
         response.setCreatedAt(post.getCreatedAt());
         response.setUpdatedAt(post.getUpdatedAt());
