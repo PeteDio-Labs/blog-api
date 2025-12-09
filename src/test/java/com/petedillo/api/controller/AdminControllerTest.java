@@ -6,8 +6,10 @@ import com.petedillo.api.model.AdminUser;
 import com.petedillo.api.model.AuthProvider;
 import com.petedillo.api.model.BlogPost;
 import com.petedillo.api.model.PostStatus;
+import com.petedillo.api.model.Tag;
 import com.petedillo.api.repository.AdminUserRepository;
 import com.petedillo.api.repository.BlogPostRepository;
+import com.petedillo.api.repository.TagRepository;
 import com.petedillo.api.security.JwtTokenProvider;
 import com.petedillo.api.test.TestDataFactory;
 import org.junit.jupiter.api.BeforeEach;
@@ -22,6 +24,7 @@ import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.transaction.annotation.Transactional;
 
+import static org.hamcrest.Matchers.*;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
@@ -43,6 +46,9 @@ class AdminControllerTest {
 
     @Autowired
     private BlogPostRepository blogPostRepository;
+
+    @Autowired
+    private TagRepository tagRepository;
 
     @Autowired
     private JwtTokenProvider tokenProvider;
@@ -239,5 +245,113 @@ class AdminControllerTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.content.length()").value(1))
                 .andExpect(jsonPath("$.content[0].title").value("Unique Post Title"));
+    }
+
+    // ==================== Tags Endpoint Tests ====================
+
+    @Test
+    @DisplayName("GET /api/v1/admin/tags should return 200 OK with list of all tags")
+    void testGetAllTags_Success() throws Exception {
+        // Arrange
+        Tag tag1 = new Tag();
+        tag1.setName("kubernetes");
+        tag1.setSlug("kubernetes");
+        tag1.setPostCount(5);
+        tagRepository.save(tag1);
+
+        Tag tag2 = new Tag();
+        tag2.setName("docker");
+        tag2.setSlug("docker");
+        tag2.setPostCount(3);
+        tagRepository.save(tag2);
+
+        // Act & Assert
+        mockMvc.perform(get("/api/v1/admin/tags")
+                .header("Authorization", "Bearer " + validAccessToken))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$").isArray())
+                .andExpect(jsonPath("$", hasSize(2)))
+                .andExpect(jsonPath("$[*].name", containsInAnyOrder("kubernetes", "docker")));
+    }
+
+    @Test
+    @DisplayName("GET /api/v1/admin/tags should include name, slug, postCount for each tag")
+    void testGetAllTags_IncludesAllFields() throws Exception {
+        // Arrange
+        Tag tag = new Tag();
+        tag.setName("java");
+        tag.setSlug("java");
+        tag.setPostCount(10);
+        tagRepository.save(tag);
+
+        // Act & Assert
+        mockMvc.perform(get("/api/v1/admin/tags")
+                .header("Authorization", "Bearer " + validAccessToken))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[0].name").value("java"))
+                .andExpect(jsonPath("$[0].slug").value("java"))
+                .andExpect(jsonPath("$[0].postCount").value(10));
+    }
+
+    @Test
+    @DisplayName("GET /api/v1/admin/tags should require JWT authentication (401 if missing)")
+    void testGetAllTags_Unauthorized() throws Exception {
+        // Act & Assert - No Authorization header
+        mockMvc.perform(get("/api/v1/admin/tags"))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
+    @DisplayName("GET /api/v1/admin/tags should reject invalid JWT token")
+    void testGetAllTags_InvalidToken() throws Exception {
+        // Act & Assert
+        mockMvc.perform(get("/api/v1/admin/tags")
+                .header("Authorization", "Bearer invalid.jwt.token"))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
+    @DisplayName("GET /api/v1/admin/tags should return empty list when no tags exist")
+    void testGetAllTags_EmptyList() throws Exception {
+        // Act & Assert - No tags created
+        mockMvc.perform(get("/api/v1/admin/tags")
+                .header("Authorization", "Bearer " + validAccessToken))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$").isArray())
+                .andExpect(jsonPath("$", hasSize(0)));
+    }
+
+    @Test
+    @DisplayName("GET /api/v1/admin/tags should order tags by postCount desc (most used first)")
+    void testGetAllTags_OrderedByPostCount() throws Exception {
+        // Arrange - Create tags with different post counts
+        Tag tag1 = new Tag();
+        tag1.setName("low-usage");
+        tag1.setSlug("low-usage");
+        tag1.setPostCount(2);
+        tagRepository.save(tag1);
+
+        Tag tag2 = new Tag();
+        tag2.setName("high-usage");
+        tag2.setSlug("high-usage");
+        tag2.setPostCount(10);
+        tagRepository.save(tag2);
+
+        Tag tag3 = new Tag();
+        tag3.setName("medium-usage");
+        tag3.setSlug("medium-usage");
+        tag3.setPostCount(5);
+        tagRepository.save(tag3);
+
+        // Act & Assert - Verify order is by postCount descending
+        mockMvc.perform(get("/api/v1/admin/tags")
+                .header("Authorization", "Bearer " + validAccessToken))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[0].name").value("high-usage"))
+                .andExpect(jsonPath("$[0].postCount").value(10))
+                .andExpect(jsonPath("$[1].name").value("medium-usage"))
+                .andExpect(jsonPath("$[1].postCount").value(5))
+                .andExpect(jsonPath("$[2].name").value("low-usage"))
+                .andExpect(jsonPath("$[2].postCount").value(2));
     }
 }
