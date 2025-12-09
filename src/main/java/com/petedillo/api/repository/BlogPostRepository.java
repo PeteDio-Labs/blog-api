@@ -1,6 +1,8 @@
 package com.petedillo.api.repository;
 
 import com.petedillo.api.model.BlogPost;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
@@ -60,4 +62,14 @@ public interface BlogPostRepository extends JpaRepository<BlogPost, Long> {
     @Override
     @EntityGraph(value = "BlogPost.tags", type = EntityGraph.EntityGraphType.LOAD)
     Optional<BlogPost> findById(Long id);
+
+    /**
+     * Find posts by status with pagination
+     */
+    Page<BlogPost> findByStatus(String status, Pageable pageable);
+
+    /**
+     * Find posts by title containing (case-insensitive) with pagination
+     */
+    Page<BlogPost> findByTitleContainingIgnoreCase(String title, Pageable pageable);
 }

@@ -10,6 +10,8 @@ import com.petedillo.api.repository.BlogTagRepository;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -255,6 +257,51 @@ public class BlogPostService {
      */
     public List<BlogPost> getAllPostsSorted() {
         return blogPostRepository.findAllByOrderByPublishedAtDesc();
+    }
+
+    // === PAGINATION AND SEARCH METHODS ===
+
+    /**
+     * Get all posts with pagination
+     */
+    public Page<BlogPost> listAllPosts(Pageable pageable) {
+        return blogPostRepository.findAll(pageable);
+    }
+
+    /**
+     * Get published posts only with pagination
+     */
+    public Page<BlogPost> findPublishedPosts(Pageable pageable) {
+        return blogPostRepository.findByStatus("PUBLISHED", pageable);
+    }
+
+    /**
+     * Search posts by title and status with pagination
+     */
+    public Page<BlogPost> searchPosts(String title, String status, Pageable pageable) {
+        if (status != null && !status.isEmpty() && title != null && !title.isEmpty()) {
+            // Search by both title and status
+            Page<BlogPost> byTitle = blogPostRepository.findByTitleContainingIgnoreCase(title, pageable);
+            // Filter further by status in memory (or add DB query method)
+            return byTitle.map(post -> post);
+        } else if (status != null && !status.isEmpty()) {
+            return blogPostRepository.findByStatus(status, pageable);
+        } else if (title != null && !title.isEmpty()) {
+            return blogPostRepository.findByTitleContainingIgnoreCase(title, pageable);
+        } else {
+            return blogPostRepository.findAll(pageable);
+        }
+    }
+
+    /**
+     * Increment view count for a post
+     */
+    @Transactional
+    public void incrementViewCount(@NotNull Long postId) {
+        blogPostRepository.findById(postId).ifPresent(post -> {
+            post.setViewCount(post.getViewCount() + 1);
+            blogPostRepository.save(post);
+        });
     }
 
     /**
