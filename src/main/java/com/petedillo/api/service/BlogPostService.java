@@ -3,10 +3,10 @@ package com.petedillo.api.service;
 import com.petedillo.api.exception.ResourceNotFoundException;
 import com.petedillo.api.model.BlogMedia;
 import com.petedillo.api.model.BlogPost;
-import com.petedillo.api.model.BlogTag;
+import com.petedillo.api.model.Tag;
 import com.petedillo.api.repository.BlogMediaRepository;
 import com.petedillo.api.repository.BlogPostRepository;
-import com.petedillo.api.repository.BlogTagRepository;
+import com.petedillo.api.repository.TagRepository;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -16,6 +16,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
@@ -25,17 +26,17 @@ import java.util.stream.Collectors;
 public class BlogPostService {
 
     private final BlogPostRepository blogPostRepository;
-    private final BlogTagRepository blogTagRepository;
+    private final TagRepository tagRepository;
     private final BlogMediaRepository blogMediaRepository;
     private final FileStorageService fileStorageService;
 
     @Autowired
     public BlogPostService(BlogPostRepository blogPostRepository,
-                           BlogTagRepository blogTagRepository,
+                           TagRepository tagRepository,
                            BlogMediaRepository blogMediaRepository,
                            FileStorageService fileStorageService) {
         this.blogPostRepository = blogPostRepository;
-        this.blogTagRepository = blogTagRepository;
+        this.tagRepository = tagRepository;
         this.blogMediaRepository = blogMediaRepository;
         this.fileStorageService = fileStorageService;
     }
@@ -86,28 +87,36 @@ public class BlogPostService {
         post.setPublishedAt(LocalDateTime.now());
         post.setUpdatedAt(LocalDateTime.now());
 
-        // Save post first to get ID
+        // Save post first
         BlogPost savedPost = blogPostRepository.save(post);
 
-        // Process tags (normalized to lowercase, alphabetically ordered)
+        // Process tags (normalized to lowercase) - fetch existing ones, don't create duplicates
         if (tagNames != null && !tagNames.isEmpty()) {
-            Set<BlogTag> tags = new HashSet<>();
+            Set<Tag> tags = new HashSet<>();
             for (String tagName : tagNames) {
                 if (tagName != null && !tagName.trim().isEmpty()) {
                     String normalizedTag = tagName.trim().toLowerCase();
+                    String slug = normalizedTag.replaceAll("\\s+", "-");
 
-                    // Create new tag for this post
-                    BlogTag newTag = new BlogTag();
-                    newTag.setTagName(normalizedTag);
-                    newTag.setBlogPost(savedPost);
+                    // Find existing tag or create new one
+                    Tag tag = tagRepository.findByName(normalizedTag)
+                            .orElseGet(() -> {
+                                Tag newTag = new Tag();
+                                newTag.setName(normalizedTag);
+                                newTag.setSlug(slug);
+                                newTag.setPostCount(0);
+                                return tagRepository.save(newTag);
+                            });
                     
-                    tags.add(newTag);
+                    tags.add(tag);
                 }
             }
-            savedPost.setBlogTags(tags);
+            // Set tags directly on the post using getTags() which returns the field
+            savedPost.getTags().clear();
+            savedPost.getTags().addAll(tags);
         }
 
-        return savedPost;
+        return blogPostRepository.save(savedPost);
     }
 
     /**
@@ -128,42 +137,12 @@ public class BlogPostService {
         }
         post.setUpdatedAt(LocalDateTime.now());
 
-        // Update tags (modify collection in place to preserve Hibernate tracking)
-        Set<BlogTag> existingTags = post.getBlogTags();
-        if (existingTags == null) {
-            existingTags = new HashSet<>();
-            post.setBlogTags(existingTags);
-        }
-        
-        // Remove tags that are no longer present
-        existingTags.removeIf(tag -> tagNames == null || !tagNames.contains(tag.getTagName()));
-
-        // Add new tags
+        // Update tags - convert Set<String> to List<String> for setTags()
         if (tagNames != null && !tagNames.isEmpty()) {
-            Set<String> existingTagNames = existingTags.stream()
-                .map(BlogTag::getTagName)
-                .collect(Collectors.toSet());
-            
-            for (String tagName : tagNames) {
-                if (tagName != null && !tagName.trim().isEmpty()) {
-                    String normalizedTag = tagName.trim().toLowerCase();
-                    
-                    // Only add if not already present
-                    if (!existingTagNames.contains(normalizedTag)) {
-                        BlogTag tag = blogTagRepository.findByTagNameIgnoreCase(normalizedTag)
-                            .orElseGet(() -> {
-                                BlogTag newTag = new BlogTag();
-                                newTag.setTagName(normalizedTag);
-                                newTag.setBlogPost(post);
-                                return newTag;
-                            });
-
-                        // Set the post association
-                        tag.setBlogPost(post);
-                        existingTags.add(tag);
-                    }
-                }
-            }
+            List<String> tagNamesList = new ArrayList<>(tagNames);
+            post.setTags(tagNamesList);
+        } else {
+            post.setTags(new ArrayList<>());
         }
 
         return blogPostRepository.save(post);
@@ -235,21 +214,25 @@ public class BlogPostService {
      */
     @NotNull
     public List<BlogPost> getPostsByTag(@NotNull String tagName) {
-        return blogPostRepository.findByBlogTags_TagNameIgnoreCase(tagName.trim().toLowerCase());
+        return blogPostRepository.findByTags_NameIgnoreCase(tagName);
     }
 
     /**
      * Get all tags ordered alphabetically
      */
-    public List<BlogTag> getAllTags() {
-        return blogTagRepository.findAllByOrderByTagNameAsc();
+    public List<Tag> getAllTags() {
+        return tagRepository.findAll().stream()
+                .sorted((t1, t2) -> t1.getName().compareToIgnoreCase(t2.getName()))
+                .collect(Collectors.toList());
     }
 
     /**
      * Get distinct tag names (no duplicates) ordered alphabetically
      */
     public Set<String> getDistinctTagNames() {
-        return blogTagRepository.findDistinctTagNames();
+        return tagRepository.findAll().stream()
+                .map(Tag::getName)
+                .collect(Collectors.toSet());
     }
 
     /**
@@ -276,7 +259,26 @@ public class BlogPostService {
     }
 
     /**
-     * Search posts by title and status with pagination
+     * Search posts across title, content, and tags by status with pagination.
+     * Used by public search endpoint.
+     *
+     * @param searchQuery the search term to look for
+     * @param status the post status filter (e.g., "PUBLISHED")
+     * @param pageable pagination parameters
+     * @return page of matching blog posts
+     */
+    public Page<BlogPost> searchPostsByQuery(String searchQuery, String status, Pageable pageable) {
+        return blogPostRepository.searchByStatusAndQuery(searchQuery, status, pageable);
+    }
+
+    /**
+     * Search posts by title and status with pagination.
+     * Used by admin endpoints for filtering posts.
+     *
+     * @param title optional title search term
+     * @param status optional status filter
+     * @param pageable pagination parameters
+     * @return page of blog posts
      */
     public Page<BlogPost> searchPosts(String title, String status, Pageable pageable) {
         if (status != null && !status.isEmpty() && title != null && !title.isEmpty()) {
