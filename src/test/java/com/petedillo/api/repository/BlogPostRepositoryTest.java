@@ -2,6 +2,8 @@ package com.petedillo.api.repository;
 
 import com.petedillo.api.model.BlogMedia;
 import com.petedillo.api.model.BlogPost;
+import com.petedillo.api.model.Tag;
+import com.petedillo.api.test.TestDataFactory;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -12,6 +14,8 @@ import java.time.LocalDateTime;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -22,11 +26,15 @@ class BlogPostRepositoryTest {
     @Autowired
     private BlogPostRepository blogPostRepository;
 
+    @Autowired
+    private TagRepository tagRepository;
+
     private BlogPost testPost;
 
     @BeforeEach
     void setUp() {
         blogPostRepository.deleteAll();
+        tagRepository.deleteAll();
 
         testPost = new BlogPost();
         testPost.setTitle("Test Post");
@@ -144,7 +152,10 @@ class BlogPostRepositoryTest {
     @Test
     void testSave_WithTags_PersistsTagsToDatabase() {
         // Arrange
-        testPost.setTags(Arrays.asList("java", "spring-boot", "testing"));
+        Tag tag1 = tagRepository.save(TestDataFactory.tagBuilder().name("java").slug("java").build());
+        Tag tag2 = tagRepository.save(TestDataFactory.tagBuilder().name("spring-boot").slug("spring-boot").build());
+        Tag tag3 = tagRepository.save(TestDataFactory.tagBuilder().name("testing").slug("testing").build());
+        testPost.getTags().addAll(Arrays.asList(tag1, tag2, tag3));
 
         // Act
         BlogPost saved = blogPostRepository.save(testPost);
@@ -153,15 +164,18 @@ class BlogPostRepositoryTest {
         // Assert
         assertNotNull(retrieved.getTags());
         assertEquals(3, retrieved.getTags().size());
-        assertTrue(retrieved.getTags().contains("java"));
-        assertTrue(retrieved.getTags().contains("spring-boot"));
-        assertTrue(retrieved.getTags().contains("testing"));
+        Set<String> tagNames = retrieved.getTags().stream().map(Tag::getName).collect(Collectors.toSet());
+        assertTrue(tagNames.contains("java"));
+        assertTrue(tagNames.contains("spring-boot"));
+        assertTrue(tagNames.contains("testing"));
     }
 
     @Test
     void testDelete_WithTags_CascadesDeleteToTags() {
         // Arrange
-        testPost.setTags(Arrays.asList("java", "spring-boot"));
+        Tag tag1 = tagRepository.save(TestDataFactory.tagBuilder().name("java").slug("java").build());
+        Tag tag2 = tagRepository.save(TestDataFactory.tagBuilder().name("spring-boot").slug("spring-boot").build());
+        testPost.getTags().addAll(Arrays.asList(tag1, tag2));
         BlogPost saved = blogPostRepository.save(testPost);
         Long id = saved.getId();
 
@@ -238,7 +252,8 @@ class BlogPostRepositoryTest {
         media.setExternalUrl("https://example.com/test.jpg");
         media.setDisplayOrder(0);
         testPost.getMedia().add(media);
-        testPost.setTags(Arrays.asList("test"));
+        Tag tag = tagRepository.save(TestDataFactory.tagBuilder().name("test").slug("test").build());
+        testPost.getTags().add(tag);
         
         blogPostRepository.save(testPost);
 
@@ -318,7 +333,10 @@ class BlogPostRepositoryTest {
             media.setDisplayOrder(i);
             testPost.getMedia().add(media);
         }
-        testPost.setTags(Arrays.asList("java", "spring", "jpa"));
+        Tag tag1 = tagRepository.save(TestDataFactory.tagBuilder().name("java").slug("java").build());
+        Tag tag2 = tagRepository.save(TestDataFactory.tagBuilder().name("spring").slug("spring").build());
+        Tag tag3 = tagRepository.save(TestDataFactory.tagBuilder().name("jpa").slug("jpa").build());
+        testPost.getTags().addAll(Arrays.asList(tag1, tag2, tag3));
 
         blogPostRepository.save(testPost);
 
@@ -332,7 +350,8 @@ class BlogPostRepositoryTest {
         // Verify tags loaded
         assertNotNull(post.getTags());
         assertEquals(3, post.getTags().size(), "Should have exactly 3 tags");
-        assertTrue(post.getTags().containsAll(Arrays.asList("java", "spring", "jpa")));
+        Set<String> tagNames = post.getTags().stream().map(Tag::getName).collect(Collectors.toSet());
+        assertTrue(tagNames.containsAll(Arrays.asList("java", "spring", "jpa")));
     }
 
     @Test
@@ -347,7 +366,8 @@ class BlogPostRepositoryTest {
             media.setAltText("Image " + i);
             testPost.getMedia().add(media);
         }
-        testPost.setTags(Arrays.asList("tag1"));
+        Tag tag = tagRepository.save(TestDataFactory.tagBuilder().name("tag1").slug("tag1").build());
+        testPost.getTags().add(tag);
 
         blogPostRepository.save(testPost);
 
@@ -386,7 +406,9 @@ class BlogPostRepositoryTest {
 
         testPost.getMedia().add(media1);
         testPost.getMedia().add(media2);
-        testPost.setTags(Arrays.asList("tag1", "tag2"));
+        Tag tag1 = tagRepository.save(TestDataFactory.tagBuilder().name("tag1").slug("tag1").build());
+        Tag tag2 = tagRepository.save(TestDataFactory.tagBuilder().name("tag2").slug("tag2").build());
+        testPost.getTags().addAll(Arrays.asList(tag1, tag2));
 
         blogPostRepository.save(testPost);
 
@@ -417,6 +439,8 @@ class BlogPostRepositoryTest {
     void testFindAllByOrderByPublishedAtDesc_WithEntityGraph_LoadsTagsEfficiently() {
         // Arrange - Create 3 posts with tags to test N+1 query issue
         blogPostRepository.deleteAll();
+        
+        Tag commonTag = tagRepository.save(TestDataFactory.tagBuilder().name("common").slug("common").build());
 
         for (int i = 0; i < 3; i++) {
             BlogPost post = new BlogPost();
@@ -427,7 +451,9 @@ class BlogPostRepositoryTest {
             post.setPublishedAt(LocalDateTime.now().minusDays(i));
             post.setCreatedAt(LocalDateTime.now());
             post.setUpdatedAt(LocalDateTime.now());
-            post.setTags(Arrays.asList("tag" + i, "common"));
+            
+            Tag uniqueTag = tagRepository.save(TestDataFactory.tagBuilder().name("tag" + i).slug("tag" + i).build());
+            post.getTags().addAll(Arrays.asList(uniqueTag, commonTag));
             blogPostRepository.save(post);
         }
 
@@ -440,14 +466,17 @@ class BlogPostRepositoryTest {
         for (BlogPost post : posts) {
             assertNotNull(post.getTags());
             assertEquals(2, post.getTags().size());
-            assertTrue(post.getTags().contains("common"));
+            Set<String> tagNames = post.getTags().stream().map(Tag::getName).collect(Collectors.toSet());
+            assertTrue(tagNames.contains("common"));
         }
     }
 
     @Test
     void testSearchByTitleOrSlug_WithEntityGraph_LoadsTagsEfficiently() {
         // Arrange
-        testPost.setTags(Arrays.asList("java", "spring"));
+        Tag tag1 = tagRepository.save(TestDataFactory.tagBuilder().name("java").slug("java").build());
+        Tag tag2 = tagRepository.save(TestDataFactory.tagBuilder().name("spring").slug("spring").build());
+        testPost.getTags().addAll(Arrays.asList(tag1, tag2));
         blogPostRepository.save(testPost);
 
         // Act
@@ -458,7 +487,8 @@ class BlogPostRepositoryTest {
         BlogPost post = results.get(0);
         assertNotNull(post.getTags());
         assertEquals(2, post.getTags().size());
-        assertTrue(post.getTags().contains("java"));
-        assertTrue(post.getTags().contains("spring"));
+        Set<String> tagNames = post.getTags().stream().map(Tag::getName).collect(Collectors.toSet());
+        assertTrue(tagNames.contains("java"));
+        assertTrue(tagNames.contains("spring"));
     }
 }
