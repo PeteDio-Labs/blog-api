@@ -10,7 +10,7 @@
     </parent>
     <groupId>com.petedillo</groupId>
     <artifactId>api</artifactId>
-    <version>0.6.0</version>
+    <version>0.6.1</version>
     <name>api</name>
     <description>Blog API with JWT Authentication</description>
     <url/>
