@@ -71,6 +71,7 @@ public class AuthController {
                 adminUser.getUsername(),
                 adminUser.getEmail(),
                 adminUser.getDisplayName(),
+                adminUser.getAuthProvider().toString(),
                 accessToken,
                 refreshToken
         );

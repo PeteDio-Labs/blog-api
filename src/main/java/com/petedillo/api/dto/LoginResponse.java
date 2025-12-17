@@ -15,6 +15,7 @@ public class LoginResponse {
     private String username;
     private String email;
     private String displayName;
+    private String authProvider;
     private String accessToken;
     private String refreshToken;
 
