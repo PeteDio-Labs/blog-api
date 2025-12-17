@@ -6,27 +6,30 @@
 -- Database is created by docker-compose environment variable
 -- Skip database creation to avoid duplicate errors
 
--- Create application user (idempotent)
 DO
 $$
 BEGIN
-  IF NOT EXISTS (SELECT FROM pg_catalog.pg_roles WHERE rolname = 'petedillo') THEN
-    CREATE USER petedillo WITH PASSWORD 'dev_password';
+  IF NOT EXISTS (SELECT FROM pg_catalog.pg_roles WHERE rolname = 'blog_app') THEN
+   CREATE ROLE blog_app WITH
+    LOGIN
+    PASSWORD 'dev_app_password'
+    NOSUPERUSER
+    NOCREATEDB
+    NOCREATEROLE
+    NOINHERIT
+    NOREPLICATION
+    NOBYPASSRLS;
   END IF;
 END
 $$;
 
--- Grant privileges
-GRANT ALL PRIVILEGES ON DATABASE petedillo_blog TO petedillo;
+GRANT CONNECT ON DATABASE petedillo_blog TO blog_app;
 
--- Connect to the database
 \c petedillo_blog
 
--- Grant schema privileges
-GRANT ALL ON SCHEMA public TO petedillo;
-GRANT ALL PRIVILEGES ON ALL TABLES IN SCHEMA public TO petedillo;
-GRANT ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA public TO petedillo;
+GRANT USAGE ON SCHEMA public TO blog_app;
+GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public TO blog_app;
+GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public TO blog_app;
 
--- Set default privileges for future tables
-ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON TABLES TO petedillo;
-ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON SEQUENCES TO petedillo;
+ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES TO blog_app;
+ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT USAGE, SELECT ON SEQUENCES TO blog_app;
