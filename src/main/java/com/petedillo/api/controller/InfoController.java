@@ -27,7 +27,7 @@ public class InfoController {
     private final BlogPostRepository blogPostRepository;
     private final TagRepository tagRepository;
 
-    @Value("${api.version:0.6.0}")
+    @Value("${app.version:0.6.1}")
     private String apiVersion;
 
     @Value("${app.environment:dev}")
@@ -36,6 +36,32 @@ public class InfoController {
     public InfoController(BlogPostRepository blogPostRepository, TagRepository tagRepository) {
         this.blogPostRepository = blogPostRepository;
         this.tagRepository = tagRepository;
+    }
+
+    /**
+     * Health check endpoint.
+     *
+     * @return Health status including database connectivity
+     */
+    @GetMapping("/health")
+    public ResponseEntity<java.util.Map<String, Object>> getHealth() {
+        java.util.Map<String, Object> health = new java.util.LinkedHashMap<>();
+        health.put("status", "UP");
+        health.put("version", apiVersion);
+        health.put("environment", environment);
+        
+        // Check database connectivity
+        try {
+            Long postCount = blogPostRepository.count();
+            health.put("database", "UP");
+            health.put("postsCount", postCount);
+        } catch (Exception e) {
+            health.put("database", "DOWN");
+            health.put("postsCount", 0);
+        }
+        
+        health.put("timestamp", java.time.Instant.now().toString());
+        return ResponseEntity.ok(health);
     }
 
     /**
