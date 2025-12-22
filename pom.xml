@@ -133,7 +133,8 @@
         </snapshotRepository>
     </distributionManagement>
 
-    <repositories>
+    <!-- Repositories section removed - using Maven Central by default -->
+    <!-- <repositories>
         <repository>
             <id>nexus-public</id>
             <name>Nexus Public Repository</name>
@@ -145,13 +146,17 @@
                 <enabled>true</enabled>
             </snapshots>
         </repository>
-    </repositories>
+    </repositories> -->
 
     <build>
         <resources>
             <resource>
                 <directory>src/main/resources</directory>
                 <filtering>true</filtering>
+                <!-- Exclude migrations from JAR; load from filesystem at runtime -->
+                <excludes>
+                    <exclude>db/migration/**</exclude>
+                </excludes>
             </resource>
         </resources>
         <plugins>
