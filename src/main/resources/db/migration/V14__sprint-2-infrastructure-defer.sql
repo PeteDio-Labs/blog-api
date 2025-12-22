@@ -20,9 +20,7 @@ INSERT INTO blog_posts (
 ) VALUES (
     'Sprint 2 Part 3: Infrastructure Analysis & Deferral',
     'sprint-2-infrastructure-defer',
-    '# Sprint 2 Part 3: Infrastructure Analysis & Deferral
-
-**Sprint Duration**: November 19-29, 2025
+    '**Sprint Duration**: November 19-29, 2025
 **Status**: 📝 PLANNING COMPLETE (Execution Deferred)
 **Focus**: Multi-environment setup planning, infrastructure optimization, sprint scope management
 

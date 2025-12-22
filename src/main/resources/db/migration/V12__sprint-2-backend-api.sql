@@ -20,9 +20,7 @@ INSERT INTO blog_posts (
 ) VALUES (
     'Sprint 2 Part 1: Backend & API Enhancements',
     'sprint-2-backend-api-enhancements',
-    '# Sprint 2 Part 1: Backend & API Enhancements
-
-**Sprint Duration**: November 19-29, 2025
+    '**Sprint Duration**: November 19-29, 2025
 **Status**: ✅ 100% COMPLETE
 **Focus**: API implementation, comprehensive testing, admin UI foundation, security hardening
 

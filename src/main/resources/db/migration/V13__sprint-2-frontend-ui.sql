@@ -20,9 +20,7 @@ INSERT INTO blog_posts (
 ) VALUES (
     'Sprint 2 Part 2: Frontend & UI Enhancements',
     'sprint-2-frontend-ui-enhancements',
-    '# Sprint 2 Part 2: Frontend & UI Enhancements
-
-**Sprint Duration**: November 19-29, 2025
+    '**Sprint Duration**: November 19-29, 2025
 **Status**: ✅ 100% COMPLETE
 **Focus**: Cyberpunk neon theme, environment awareness UI, media display optimization, markdown table rendering
 
