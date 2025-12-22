@@ -3,11 +3,14 @@ package com.petedillo.api.controller.api;
 import com.petedillo.api.dto.BlogPostRequest;
 import com.petedillo.api.dto.BlogPostResponse;
 import com.petedillo.api.dto.TagResponse;
+import com.petedillo.api.exception.ResourceNotFoundException;
 import com.petedillo.api.model.BlogPost;
 import com.petedillo.api.model.PostStatus;
 import com.petedillo.api.model.Tag;
 import com.petedillo.api.repository.TagRepository;
 import com.petedillo.api.service.BlogPostService;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
@@ -17,6 +20,7 @@ import org.springframework.web.bind.annotation.*;
 
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
 
@@ -27,6 +31,8 @@ import java.util.stream.Collectors;
 @RestController
 @RequestMapping("/api/v1/admin")
 public class AdminController {
+
+    private static final Logger logger = LoggerFactory.getLogger(AdminController.class);
 
     private final BlogPostService blogPostService;
     private final TagRepository tagRepository;
@@ -102,7 +108,7 @@ public class AdminController {
      * @return the updated blog post
      */
     @PutMapping("/posts/{id}")
-    public ResponseEntity<BlogPostResponse> updatePost(@PathVariable Long id, 
+    public ResponseEntity<?> updatePost(@PathVariable Long id, 
                                                         @RequestBody BlogPostRequest request) {
         try {
             Set<String> tags = request.getTags() != null ? 
@@ -117,8 +123,12 @@ public class AdminController {
                     tags
             );
             return ResponseEntity.ok(toResponse(updatedPost));
-        } catch (Exception e) {
+        } catch (ResourceNotFoundException e) {
             return ResponseEntity.notFound().build();
+        } catch (Exception e) {
+            logger.error("Error updating post {}: {}", id, e.getMessage(), e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(Map.of("error", "Failed to update post", "message", e.getMessage()));
         }
     }
 
@@ -129,12 +139,16 @@ public class AdminController {
      * @return 204 No Content
      */
     @DeleteMapping("/posts/{id}")
-    public ResponseEntity<Void> deletePost(@PathVariable Long id) {
+    public ResponseEntity<?> deletePost(@PathVariable Long id) {
         try {
             blogPostService.deletePost(id);
             return ResponseEntity.noContent().build();
-        } catch (Exception e) {
+        } catch (ResourceNotFoundException e) {
             return ResponseEntity.notFound().build();
+        } catch (Exception e) {
+            logger.error("Error deleting post {}: {}", id, e.getMessage(), e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(Map.of("error", "Failed to delete post", "message", e.getMessage()));
         }
     }
 
