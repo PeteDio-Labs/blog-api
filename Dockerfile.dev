@@ -18,14 +18,14 @@ WORKDIR /build
 COPY .mvn/ .mvn/
 COPY mvnw pom.xml ./
 
-# Download dependencies (cached if pom.xml doesn't change)
-RUN ./mvnw dependency:go-offline -B
-
 # Copy source code
 COPY src/ src/
 
 # Build the application (skip tests for faster builds)
-RUN ./mvnw clean package -DskipTests
+# Dependencies will be downloaded during package step
+# Using cache mount to persist Maven local repository across builds
+RUN --mount=type=cache,target=/root/.m2 \
+    ./mvnw clean package -DskipTests
 
 # ---------------------------------------------------------------------------
 # Stage 2: Runtime

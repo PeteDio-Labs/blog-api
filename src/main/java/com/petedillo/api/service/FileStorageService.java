@@ -1,6 +1,7 @@
 package com.petedillo.api.service;
 
 import com.petedillo.api.exception.MediaUploadException;
+import com.petedillo.api.exception.ResourceNotFoundException;
 import org.jetbrains.annotations.NotNull;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
@@ -74,11 +75,41 @@ public class FileStorageService {
     }
 
     /**
-     * Load file as resource for serving
+     * Load file from storage for serving to clients.
+     * Validates filename to prevent path traversal attacks.
+     *
+     * @param filename the filename to load (e.g., "abc-123.jpg")
+     * @return Path to the file
+     * @throws ResourceNotFoundException if file doesn't exist
+     * @throws MediaUploadException if filename is invalid
      */
     @NotNull
     public Path loadFile(@NotNull String filename) {
-        return fileStorageLocation.resolve(filename).normalize();
+        // Validate filename for security
+        if (filename == null || filename.isEmpty()) {
+            throw new MediaUploadException("Invalid filename");
+        }
+
+        // Prevent path traversal attacks
+        String cleanFilename = StringUtils.cleanPath(filename);
+        if (cleanFilename.contains("..")) {
+            throw new MediaUploadException("Invalid path sequence in filename");
+        }
+
+        // Resolve file path
+        Path filePath = this.fileStorageLocation.resolve(cleanFilename).normalize();
+
+        // Ensure resolved path is still within storage directory (security check)
+        if (!filePath.startsWith(this.fileStorageLocation)) {
+            throw new MediaUploadException("Access denied to file outside storage directory");
+        }
+
+        // Check file exists
+        if (!Files.exists(filePath)) {
+            throw new ResourceNotFoundException("File not found: " + filename);
+        }
+
+        return filePath;
     }
 
     /**

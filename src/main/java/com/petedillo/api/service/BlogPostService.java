@@ -137,12 +137,29 @@ public class BlogPostService {
         }
         post.setUpdatedAt(LocalDateTime.now());
 
-        // Update tags - convert Set<String> to List<String> for setTags()
+        // Update tags - fetch existing tags or create new ones (like createPost does)
+        post.getTags().clear();
         if (tagNames != null && !tagNames.isEmpty()) {
-            List<String> tagNamesList = new ArrayList<>(tagNames);
-            post.setTags(tagNamesList);
-        } else {
-            post.setTags(new ArrayList<>());
+            Set<Tag> tags = new HashSet<>();
+            for (String tagName : tagNames) {
+                if (tagName != null && !tagName.trim().isEmpty()) {
+                    String normalizedTag = tagName.trim().toLowerCase();
+                    String slug = normalizedTag.replaceAll("\\s+", "-");
+
+                    // Find existing tag or create new one
+                    Tag tag = tagRepository.findByName(normalizedTag)
+                            .orElseGet(() -> {
+                                Tag newTag = new Tag();
+                                newTag.setName(normalizedTag);
+                                newTag.setSlug(slug);
+                                newTag.setPostCount(0);
+                                return tagRepository.save(newTag);
+                            });
+                    
+                    tags.add(tag);
+                }
+            }
+            post.getTags().addAll(tags);
         }
 
         return blogPostRepository.save(post);
