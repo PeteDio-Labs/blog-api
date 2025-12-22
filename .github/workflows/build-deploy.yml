@@ -5,10 +5,12 @@ on:
     branches:
       - main
       - develop
+      - stage
   pull_request:
     branches:
       - main
       - develop
+      - stage
 
 env:
   NEXUS_REGISTRY: docker.toastedbytes.com
@@ -115,6 +117,10 @@ jobs:
             echo "tag=main-latest" >> $GITHUB_OUTPUT
             echo "extra_tag=prod-latest" >> $GITHUB_OUTPUT
             echo "env=prod" >> $GITHUB_OUTPUT
+          elif [[ "${{ github.ref }}" == "refs/heads/stage" ]]; then
+            echo "tag=stage-latest" >> $GITHUB_OUTPUT
+            echo "extra_tag=" >> $GITHUB_OUTPUT
+            echo "env=stage" >> $GITHUB_OUTPUT
           else
             echo "tag=develop-latest" >> $GITHUB_OUTPUT
             echo "extra_tag=dev-latest" >> $GITHUB_OUTPUT
@@ -135,7 +141,7 @@ jobs:
           push: true
           tags: |
             ${{ env.NEXUS_REGISTRY }}/blog-api:${{ steps.docker-tag.outputs.tag }}
-            ${{ env.NEXUS_REGISTRY }}/blog-api:${{ steps.docker-tag.outputs.extra_tag }}
+            ${{ steps.docker-tag.outputs.extra_tag && format('{0}/blog-api:{1}', env.NEXUS_REGISTRY, steps.docker-tag.outputs.extra_tag) || '' }}
             ${{ env.NEXUS_REGISTRY }}/blog-api:${{ github.sha }}
 
       - name: Summary
