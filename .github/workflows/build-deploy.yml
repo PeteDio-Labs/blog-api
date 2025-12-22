@@ -12,6 +12,9 @@ on:
       - develop
       - stage
 
+permissions:
+  pull-requests: write
+
 env:
   NEXUS_REGISTRY: docker.toastedbytes.com
   NEXUS_MAVEN_RELEASES: https://registry.toastedbytes.com/repository/maven-releases/
