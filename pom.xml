@@ -153,10 +153,6 @@
             <resource>
                 <directory>src/main/resources</directory>
                 <filtering>true</filtering>
-                <!-- Exclude migrations from JAR; load from filesystem at runtime -->
-                <excludes>
-                    <exclude>db/migration/**</exclude>
-                </excludes>
             </resource>
         </resources>
         <plugins>
