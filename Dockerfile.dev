@@ -14,16 +14,20 @@
 FROM eclipse-temurin:21-jdk-alpine AS builder
 WORKDIR /build
 
-# Copy Maven wrapper and pom.xml first (for better caching)
+# Copy Maven wrapper and pom.xml first (for better layer caching)
 COPY .mvn/ .mvn/
 COPY mvnw pom.xml ./
 
-# Copy source code
+# Download dependencies BEFORE copying source code
+# This layer is cached until pom.xml changes, speeding up rebuilds significantly
+RUN --mount=type=cache,target=/root/.m2 \
+    ./mvnw dependency:resolve dependency:resolve-plugins -B
+
+# Copy source code (changes frequently, so this is a separate layer)
 COPY src/ src/
 
 # Build the application (skip tests for faster builds)
-# Dependencies will be downloaded during package step
-# Using cache mount to persist Maven local repository across builds
+# Dependencies already cached from previous step
 RUN --mount=type=cache,target=/root/.m2 \
     ./mvnw clean package -DskipTests
 
