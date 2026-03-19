@@ -15,7 +15,6 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.HashSet;
@@ -25,8 +24,8 @@ import java.util.Set;
 import java.util.stream.Collectors;
 
 /**
- * REST controller for admin blog post management.
- * All endpoints require JWT authentication with ROLE_ADMIN.
+ * REST controller for blog post management.
+ * Consumed by blog-agent and internal automation.
  */
 @RestController
 @RequestMapping("/api/v1/admin")
@@ -50,8 +49,7 @@ public class AdminController {
      * @return the created blog post
      */
     @PostMapping("/posts")
-    public ResponseEntity<BlogPostResponse> createPost(@RequestBody BlogPostRequest request,
-                                                        Authentication authentication) {
+    public ResponseEntity<BlogPostResponse> createPost(@RequestBody BlogPostRequest request) {
         Set<String> tags = request.getTags() != null ? 
                 new HashSet<>(request.getTags()) : new HashSet<>();
         

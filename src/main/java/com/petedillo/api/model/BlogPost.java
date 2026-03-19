@@ -1,8 +1,6 @@
 package com.petedillo.api.model;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
-import com.petedillo.api.dto.CoverImageDTO;
-import com.petedillo.api.dto.MediaDTO;
 import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.Setter;
@@ -10,7 +8,6 @@ import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 import java.time.LocalDateTime;
-import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
@@ -20,10 +17,6 @@ import java.util.stream.Collectors;
     @NamedEntityGraph(
         name = "BlogPost.tags",
         attributeNodes = @NamedAttributeNode("tags")
-    ),
-    @NamedEntityGraph(
-        name = "BlogPost.media",
-        attributeNodes = @NamedAttributeNode("media")
     )
 })
 @Setter
@@ -78,11 +71,6 @@ public class BlogPost {
     )
     private Set<Tag> tags = new HashSet<>();
 
-    @OneToMany(mappedBy = "blogPost", cascade = CascadeType.ALL, orphanRemoval = true)
-    @OrderBy("displayOrder ASC")
-    private List<BlogMedia> media = new ArrayList<>();
-
-    // Convenience method to get tag names as List<String> for JSON serialization
     @JsonProperty("tags")
     public List<String> getTagNames() {
         return tags.stream()
@@ -90,7 +78,6 @@ public class BlogPost {
                 .collect(Collectors.toList());
     }
 
-    // Convenience method to set tags from List<String>
     public void setTagNames(@Nullable List<String> tagNames) {
         this.tags = new HashSet<>();
         if (tagNames != null) {
@@ -106,28 +93,7 @@ public class BlogPost {
         }
     }
 
-    // Backward compatibility: accept List<String> and convert to Set
     public void setTags(@Nullable List<String> tagNames) {
         setTagNames(tagNames);
     }
-
-    // Get media items as DTOs for JSON serialization
-    @JsonProperty("media")
-    public List<MediaDTO> getMediaDTOs() {
-        return media.stream()
-                .map(MediaDTO::fromEntity)
-                .collect(Collectors.toList());
-    }
-
-    // Get cover image (first media with displayOrder = 0)
-    @JsonProperty("coverImage")
-    @Nullable
-    public CoverImageDTO getCoverImage() {
-        return media.stream()
-                .filter(m -> m.getDisplayOrder() != null && m.getDisplayOrder() == 0)
-                .findFirst()
-                .map(CoverImageDTO::fromEntity)
-                .orElse(null);
-    }
-
 }
