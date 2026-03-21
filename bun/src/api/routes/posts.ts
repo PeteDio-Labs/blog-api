@@ -15,6 +15,20 @@ export function createPostsRouter(postService: PostService): Router {
     res.json(paginate(posts, page, size, total));
   });
 
+  // GET /api/v1/posts/tag/:tag — paginated by tag slug
+  router.get('/tag/:tag', async (req, res) => {
+    const { page, size, offset } = parsePagination(
+      req.query as { page?: string; size?: string },
+    );
+    const { posts, total } = await postService.listByTag(
+      req.params.tag,
+      page,
+      size,
+      offset,
+    );
+    res.json(paginate(posts, page, size, total));
+  });
+
   // GET /api/v1/posts/:slug — returns PUBLISHED or UNLISTED, increments view_count
   router.get('/:slug', async (req, res) => {
     const post = await postService.getBySlug(req.params.slug);

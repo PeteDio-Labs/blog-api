@@ -147,6 +147,37 @@ export class PostService {
     return { posts, total };
   }
 
+  async listByTag(
+    tagSlug: string,
+    _page: number,
+    size: number,
+    offset: number,
+  ): Promise<{ posts: PostResponse[]; total: number }> {
+    const countResult = await this.pool.query<{ count: string }>(
+      `SELECT COUNT(DISTINCT p.id) as count FROM blog_posts p
+       JOIN post_tags pt ON p.id = pt.post_id
+       JOIN tags t ON pt.tag_id = t.id
+       WHERE p.status = 'PUBLISHED' AND t.slug = $1`,
+      [tagSlug],
+    );
+    const total = Number(countResult.rows[0]?.count ?? 0);
+
+    const { rows } = await this.pool.query<PostRow>(
+      `SELECT p.* FROM blog_posts p
+       JOIN post_tags pt ON p.id = pt.post_id
+       JOIN tags t ON pt.tag_id = t.id
+       WHERE p.status = 'PUBLISHED' AND t.slug = $1
+       ORDER BY p.published_at DESC NULLS LAST
+       LIMIT $2 OFFSET $3`,
+      [tagSlug, size, offset],
+    );
+
+    const tagsMap = await this.getTagsForPosts(rows.map((r) => r.id));
+    const posts = rows.map((r) => mapPost(r, tagsMap.get(r.id) ?? []));
+
+    return { posts, total };
+  }
+
   async getBySlug(slug: string): Promise<PostResponse | null> {
     const { rows } = await this.pool.query<PostRow>(
       "SELECT * FROM blog_posts WHERE slug = $1 AND status IN ('PUBLISHED', 'UNLISTED')",
