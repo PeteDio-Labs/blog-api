@@ -28,7 +28,7 @@ export function createInfoRouter(postService: PostService): Router {
       name: 'blog-api',
       version: config.version,
       environment: config.environment,
-      tags: tags.map((t) => t.name),
+      tags: tags,
       mostRecentPostDate: recentDate,
     });
   });
