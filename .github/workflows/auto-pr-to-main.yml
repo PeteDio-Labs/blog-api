@@ -1,0 +1,63 @@
+name: Auto PR to Main
+
+on:
+  push:
+    branches:
+      - develop
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  create-pr:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Check if PR already exists
+        id: check-pr
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          PR_EXISTS=$(gh pr list --base main --head develop --state open --json number --jq length)
+          echo "exists=$PR_EXISTS" >> $GITHUB_OUTPUT
+
+      - name: Generate changelog
+        id: changelog
+        if: steps.check-pr.outputs.exists == '0'
+        run: |
+          CHANGELOG=$(git log main..develop --pretty=format:"- %s (%h)" --no-merges | head -20)
+          echo "changelog<<EOF" >> $GITHUB_OUTPUT
+          echo "$CHANGELOG" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+
+      - name: Create Pull Request
+        if: steps.check-pr.outputs.exists == '0'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh pr create \
+            --base main \
+            --head develop \
+            --title "🚀 Auto-promote develop to main (API)" \
+            --body "## Automated Promotion
+
+          This PR was automatically created to promote API changes from \`develop\` to \`main\`.
+
+          ### Recent Changes
+          ${{ steps.changelog.outputs.changelog }}
+
+          ### Deployment Impact
+          - **Environment**: Production
+          - **Image Tags**: Will trigger release build
+          - **Auto-Deploy**: Per production deployment policy
+
+          ### Checklist
+          - [ ] Dev environment tests passed
+          - [ ] Changes reviewed and tested
+          - [ ] Ready for production promotion"

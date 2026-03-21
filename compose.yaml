@@ -1,52 +1,25 @@
 services:
-  postgres:
-    image: postgres:15-alpine
-    environment:
-      POSTGRES_DB: petedillo_blog
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: dev_admin_password
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
-      - ./init.sql:/docker-entrypoint-initdb.d/init.sql
+  db:
+    image: postgres:16-alpine
+    env_file: .env
     ports:
       - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres"]
-      interval: 10s
-      timeout: 5s
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 3s
       retries: 5
-    networks:
-      - api-network
 
   api:
-    build:
-      context: .
-      dockerfile: Dockerfile.dev
-    environment:
-      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/petedillo_blog
-      SPRING_DATASOURCE_USERNAME: blog_app
-      SPRING_DATASOURCE_PASSWORD: dev_app_password
-      SPRING_PROFILES_ACTIVE: dev
-      APP_ENVIRONMENT: dev
-      DB_USERNAME: blog_app
-      DB_PASSWORD: dev_app_password
+    build: .
+    env_file: .env
     ports:
       - "8080:8080"
     depends_on:
-      postgres:
+      db:
         condition: service_healthy
-    healthcheck:
-      test: ["CMD-SHELL", "curl -f http://localhost:8080/api/v1/health || exit 1"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 40s
-    networks:
-      - api-network
-
-networks:
-  api-network:
-    driver: bridge
 
 volumes:
-  postgres_data:
+  pgdata:

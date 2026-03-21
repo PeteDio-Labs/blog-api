@@ -1,33 +1,38 @@
-HELP.md
-target/
-.mvn/wrapper/maven-wrapper.jar
-!**/src/main/**/target/
-!**/src/test/**/target/
 
-### STS ###
-.apt_generated
-.classpath
-.factorypath
-.project
-.settings
-.springBeans
-.sts4-cache
-
-### IntelliJ IDEA ###
+# Build output
+.cache
+# caches
+# code coverage
+coverage
+# Dependencies
+# dependencies (bun install)
+dist
+dist/
+# dotenv environment variable files
+.DS_Store
+.env
+.env.development.local
+# Environment
+.env.local
+.env.production.local
+.env.test.local
+.eslintcache
+# Finder (MacOS) folder config
+# IDE
 .idea
-*.iws
-*.iml
-*.ipr
-
-### NetBeans ###
-/nbproject/private/
-/nbbuild/
-/dist/
-/nbdist/
-/.nb-gradle/
-build/
-!**/src/main/**/build/
-!**/src/test/**/build/
-
-### VS Code ###
+.idea/
+# IntelliJ based IDEs
+*.lcov
+_.log
+# logs
+logs
+node_modules
+node_modules/
+# OS
+out
+# output
+report.[0-9]_.[0-9]_.[0-9]_.[0-9]_.json
+*.tgz
+Thumbs.db
+*.tsbuildinfo
 .vscode/
