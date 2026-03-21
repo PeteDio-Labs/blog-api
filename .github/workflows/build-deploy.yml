@@ -31,19 +31,15 @@ jobs:
 
       - name: Install dependencies
         run: bun install --frozen-lockfile
-        working-directory: bun
 
       - name: Typecheck
         run: bun run typecheck
-        working-directory: bun
 
       - name: Run tests
         run: bun run test
-        working-directory: bun
 
       - name: Build
         run: bun run build
-        working-directory: bun
 
       - name: Build Docker image (validation only)
         run: docker build -t blog-api:pr-${{ github.event.pull_request.number }} .
@@ -69,15 +65,12 @@ jobs:
 
       - name: Install dependencies
         run: bun install --frozen-lockfile
-        working-directory: bun
 
       - name: Typecheck
         run: bun run typecheck
-        working-directory: bun
 
       - name: Run tests
         run: bun run test
-        working-directory: bun
 
       - name: Determine Docker tag
         id: docker-tag
