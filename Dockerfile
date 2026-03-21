@@ -11,6 +11,7 @@ WORKDIR /app
 COPY --from=builder /app/dist/ dist/
 COPY --from=builder /app/node_modules/ node_modules/
 COPY --from=builder /app/package.json ./
+COPY bun/src/db/migrations/ dist/db/migrations/
 COPY seed-posts/ seed-posts/
 EXPOSE 8080
 CMD ["bun", "run", "dist/index.js"]

@@ -50,7 +50,7 @@ function parseFrontmatter(raw: string): {
 
 export async function seedPosts(pool: Pool): Promise<void> {
   // seed-posts lives next to src/ in the project root
-  const seedDir = join(import.meta.dirname, '..', '..', 'seed-posts');
+  const seedDir = join(process.cwd(), 'seed-posts');
 
   let files: string[];
   try {

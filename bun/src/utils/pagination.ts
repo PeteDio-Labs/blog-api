@@ -29,7 +29,9 @@ export function parsePagination(query: {
   page?: string;
   size?: string;
 }): { page: number; size: number; offset: number } {
-  const page = Math.max(0, Number(query.page) || 0);
+  // UI uses 1-based indexing, API uses 0-based for offset
+  const page = Math.max(1, Number(query.page) || 1);
   const size = Math.min(100, Math.max(1, Number(query.size) || 20));
-  return { page, size, offset: page * size };
+  const offset = (page - 1) * size;
+  return { page, size, offset };
 }

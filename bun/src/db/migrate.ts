@@ -14,7 +14,7 @@ export async function runMigrations(pool: Pool): Promise<void> {
       )
     `);
 
-    const migrationsDir = join(import.meta.dirname, 'migrations');
+    const migrationsDir = join(process.cwd(), 'dist', 'db', 'migrations');
     const files = (await readdir(migrationsDir))
       .filter((f) => f.endsWith('.sql'))
       .sort();
