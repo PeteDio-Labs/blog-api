@@ -5,23 +5,19 @@ on:
     branches:
       - main
       - develop
-      - stage
   pull_request:
     branches:
       - main
       - develop
-      - stage
 
 permissions:
   pull-requests: write
 
 env:
   NEXUS_REGISTRY: docker.toastedbytes.com
-  NEXUS_MAVEN_RELEASES: https://registry.toastedbytes.com/repository/maven-releases/
-  NEXUS_MAVEN_SNAPSHOTS: https://registry.toastedbytes.com/repository/maven-snapshots/
 
 jobs:
-  # PR builds: Test and validate only, no deployment
+  # PR builds: Typecheck, test, validate Docker build
   build:
     if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
@@ -30,34 +26,36 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Set up JDK 21
-        uses: actions/setup-java@v4
-        with:
-          java-version: '21'
-          distribution: 'temurin'
-          cache: 'maven'
+      - name: Set up Bun
+        uses: oven-sh/setup-bun@v2
 
-      - name: Build with Maven
-        run: mvn clean package -DskipTests
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+        working-directory: bun
+
+      - name: Typecheck
+        run: bun run typecheck
+        working-directory: bun
 
       - name: Run tests
-        run: mvn test
+        run: bun run test
+        working-directory: bun
+
+      - name: Build
+        run: bun run build
+        working-directory: bun
 
       - name: Build Docker image (validation only)
-        run: |
-          cp target/*.jar .
-          docker build -t blog-api:pr-${{ github.event.pull_request.number }} .
-        continue-on-error: true
+        run: docker build -t blog-api:pr-${{ github.event.pull_request.number }} .
 
       - name: Summary
         run: |
           echo "### Build Validation :white_check_mark:" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          echo "- **PR #${{ github.event.pull_request.number }}**: Build and tests successful" >> $GITHUB_STEP_SUMMARY
+          echo "- **PR #${{ github.event.pull_request.number }}**: Typecheck, tests, and Docker build successful" >> $GITHUB_STEP_SUMMARY
           echo "- **Target Branch**: ${{ github.base_ref }}" >> $GITHUB_STEP_SUMMARY
-          echo "- **Status**: Ready for review (no deployment on PR)" >> $GITHUB_STEP_SUMMARY
 
-  # Push to main/develop: Build, test, and deploy to registry
+  # Push to main/develop: Build, test, push to registry
   deploy:
     if: github.event_name == 'push'
     runs-on: ubuntu-latest
@@ -66,52 +64,20 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Set up JDK 21
-        uses: actions/setup-java@v4
-        with:
-          java-version: '21'
-          distribution: 'temurin'
-          cache: 'maven'
+      - name: Set up Bun
+        uses: oven-sh/setup-bun@v2
 
-      - name: Configure Maven settings
-        run: |
-          mkdir -p ~/.m2
-          cat > ~/.m2/settings.xml << EOF
-          <settings xmlns="http://maven.apache.org/SETTINGS/1.0.0"
-                    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-                    xsi:schemaLocation="http://maven.apache.org/SETTINGS/1.0.0 https://maven.apache.org/xsd/settings-1.0.0.xsd">
-            <servers>
-              <server>
-                <id>nexus-releases</id>
-                <username>${NEXUS_USERNAME}</username>
-                <password><![CDATA[${NEXUS_PASSWORD}]]></password>
-              </server>
-              <server>
-                <id>nexus-snapshots</id>
-                <username>${NEXUS_USERNAME}</username>
-                <password><![CDATA[${NEXUS_PASSWORD}]]></password>
-              </server>
-            </servers>
-          </settings>
-          EOF
-        env:
-          NEXUS_USERNAME: ${{ secrets.NEXUS_USERNAME }}
-          NEXUS_PASSWORD: ${{ secrets.NEXUS_PASSWORD }}
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+        working-directory: bun
 
-      - name: Build with Maven
-        run: mvn clean package -DskipTests
+      - name: Typecheck
+        run: bun run typecheck
+        working-directory: bun
 
       - name: Run tests
-        run: mvn test
-
-      - name: Deploy to Nexus Maven Repository
-        run: mvn deploy -DskipTests
-        env:
-          NEXUS_USERNAME: ${{ secrets.NEXUS_USERNAME }}
-          NEXUS_PASSWORD: ${{ secrets.NEXUS_PASSWORD }}
-
-      - name: Copy JAR for Docker build
-        run: cp target/*.jar .
+        run: bun run test
+        working-directory: bun
 
       - name: Determine Docker tag
         id: docker-tag
@@ -120,10 +86,6 @@ jobs:
             echo "tag=main-latest" >> $GITHUB_OUTPUT
             echo "extra_tag=prod-latest" >> $GITHUB_OUTPUT
             echo "env=prod" >> $GITHUB_OUTPUT
-          elif [[ "${{ github.ref }}" == "refs/heads/stage" ]]; then
-            echo "tag=stage-latest" >> $GITHUB_OUTPUT
-            echo "extra_tag=" >> $GITHUB_OUTPUT
-            echo "env=stage" >> $GITHUB_OUTPUT
           else
             echo "tag=develop-latest" >> $GITHUB_OUTPUT
             echo "extra_tag=dev-latest" >> $GITHUB_OUTPUT
@@ -152,7 +114,6 @@ jobs:
           echo "### Deployment Summary :rocket:" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "- **Environment**: ${{ steps.docker-tag.outputs.env }}" >> $GITHUB_STEP_SUMMARY
-          echo "- **Maven Artifact**: Deployed to Nexus" >> $GITHUB_STEP_SUMMARY
           echo "- **Docker Images**: \`blog-api:${{ steps.docker-tag.outputs.tag }}\`, \`blog-api:${{ steps.docker-tag.outputs.extra_tag }}\`" >> $GITHUB_STEP_SUMMARY
           echo "- **Commit SHA**: \`${{ github.sha }}\`" >> $GITHUB_STEP_SUMMARY
           echo "- **Registry**: ${{ env.NEXUS_REGISTRY }}" >> $GITHUB_STEP_SUMMARY
