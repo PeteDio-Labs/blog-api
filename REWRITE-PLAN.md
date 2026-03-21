@@ -2,7 +2,7 @@
 
 **Branch**: `feature/bun-express-rewrite`
 **Target**: Replace Spring Boot 3.5.7 / Java 21 with Bun + Express 5 + TypeScript
-**Database**: Same Postgres 16, same schema — no data migration needed
+**Database**: Fresh Postgres 16 — clean schema, seeded from `seed-posts/` markdown files
 
 ---
 
@@ -118,13 +118,13 @@ src/
 ├── db/
 │   ├── pool.ts           # pg Pool factory
 │   ├── migrate.ts        # SQL migration runner (reads migrations/ dir)
-│   └── migrations/       # Numbered .sql files (copied from Flyway)
+│   ├── seed.ts           # Parses seed-posts/*.md frontmatter, inserts posts + tags
+│   └── migrations/       # Numbered .sql files (clean, no Flyway legacy)
 │       ├── 001_create_blog_posts.sql
 │       ├── 002_create_tags.sql
 │       ├── 003_create_post_tags.sql
 │       ├── 004_create_indexes.sql
-│       ├── 005_create_triggers.sql
-│       └── 006_seed_data.sql
+│       └── 005_create_triggers.sql
 ├── api/routes/
 │   ├── index.ts          # Route mounting
 │   ├── posts.ts          # Public post endpoints
@@ -138,59 +138,47 @@ src/
 │   └── index.ts          # prom-client registry
 └── utils/
     ├── logger.ts         # Pino logger
-    └── pagination.ts     # Page response builder (Spring Data-compatible shape)
+    └── pagination.ts     # Page response builder
 ```
 
 ---
 
-## Database Migration Strategy
+## Database Strategy
 
-The existing Postgres database has Flyway's `flyway_schema_history` table and 14 applied migrations. We do **NOT** re-run migrations against the existing database.
+Fresh database — no Flyway, no legacy tables. The old Spring Boot DB is thrown away.
 
 **Approach:**
-1. Copy the relevant SQL from V1, V4, V5, V6, V11 into `src/db/migrations/` as clean numbered files
-2. Write a simple migration runner that tracks applied migrations in a `schema_migrations` table
-3. On first boot against the existing DB, the runner detects tables already exist and marks migrations as applied
-4. New migrations (if any) get new numbers and run normally
-5. For fresh environments (CI, local dev), migrations create everything from scratch
+1. Clean SQL migrations in `src/db/migrations/` — only the tables we actually use
+2. Simple migration runner tracks applied migrations in a `schema_migrations` table
+3. On first boot, creates schema from scratch and seeds from `seed-posts/*.md`
+4. Seed runner parses markdown frontmatter (title, slug, status, tags, excerpt) and inserts posts + tags
 
-**Tables to support in code:**
+**Tables (3 total):**
 - `blog_posts` — full CRUD
 - `tags` — find-or-create, list
 - `post_tags` — junction table (managed via post CRUD)
 
-**Tables that exist but need NO code:**
-- `blog_media` (V3) — schema only, no API
-- `admin_users` (V9) — schema only, dead
-- `refresh_tokens` (V10) — schema only, dead
-- `blog_tags` (V2) — legacy, replaced by V11
+**Seed posts** (`seed-posts/` directory):
+- `001-welcome-to-petedio-labs.md` — intro post
+- `002-homelab-inventory.md` — infrastructure snapshot
+- `003-how-the-blog-writes-itself.md` — blog-agent explainer
+- New seed posts can be added as numbered markdown files with frontmatter
 
 ---
 
 ## Pagination Response Shape
 
-Match Spring Data's `Page` object so the blog UI doesn't need changes:
+Simple pagination — no Spring Data compatibility needed (UI is being rewritten too):
 
 ```json
 {
-  "content": [...],
-  "pageable": {
-    "pageNumber": 0,
-    "pageSize": 20,
-    "sort": { "sorted": true, "unsorted": false, "empty": false },
-    "offset": 0,
-    "paged": true,
-    "unpaged": false
-  },
-  "totalElements": 42,
-  "totalPages": 3,
-  "last": false,
-  "first": true,
-  "size": 20,
-  "number": 0,
-  "numberOfElements": 20,
-  "sort": { "sorted": true, "unsorted": false, "empty": false },
-  "empty": false
+  "data": [...],
+  "pagination": {
+    "page": 0,
+    "size": 20,
+    "totalElements": 42,
+    "totalPages": 3
+  }
 }
 ```
 
@@ -320,6 +308,7 @@ WORKDIR /app
 COPY --from=builder /app/dist/ dist/
 COPY --from=builder /app/node_modules/ node_modules/
 COPY package.json ./
+COPY seed-posts/ seed-posts/
 EXPOSE 8080
 CMD ["bun", "run", "dist/index.js"]
 ```
@@ -341,14 +330,15 @@ CMD ["bun", "run", "dist/index.js"]
 - [ ] `src/utils/logger.ts` — Pino logger
 - [ ] `src/metrics/index.ts` — prom-client registry
 - [ ] `src/db/pool.ts` — pg Pool
-- [ ] `src/db/migrations/` — SQL files from Flyway
+- [ ] `src/db/migrations/` — clean SQL files (blog_posts, tags, post_tags, indexes, triggers)
 - [ ] `src/db/migrate.ts` — migration runner
+- [ ] `src/db/seed.ts` — parse `seed-posts/*.md` frontmatter, insert posts + tags
 - [ ] `src/app.ts` — Express app factory with middleware
-- [ ] `src/index.ts` — entry point
+- [ ] `src/index.ts` — entry point (migrate → seed → listen)
 
 ### Phase 2: Services + Routes (day 1-2)
 - [ ] `src/types.ts` — Zod schemas for request/response
-- [ ] `src/utils/pagination.ts` — Spring Data Page builder
+- [ ] `src/utils/pagination.ts` — pagination response builder
 - [ ] `src/services/posts.ts` — PostService (all business logic)
 - [ ] `src/api/routes/posts.ts` — public GET endpoints
 - [ ] `src/api/routes/search.ts` — search endpoint
@@ -384,7 +374,7 @@ CMD ["bun", "run", "dist/index.js"]
 ## Risk Mitigation
 
 - **Same port (8080)**: K8s Service doesn't change, zero-downtime swap
-- **Same DB**: No data migration — the Bun app reads the same tables Flyway created
-- **Same response shapes**: Blog UI and blog-agent clients don't need changes
+- **Fresh DB**: Old Flyway-managed DB is discarded — new schema + seed posts on first boot
 - **Rollback**: `develop` branch still has Spring Boot — revert ArgoCD image tag to roll back
-- **Testing**: Run both APIs locally against the same Postgres to verify identical responses before switching
+- **Seed posts are the source of truth**: Initial content lives in `seed-posts/` as markdown — easy to review, edit, add more
+- **Blog UI is being rewritten too**: No need for backwards-compatible response shapes
