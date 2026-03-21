@@ -19,13 +19,11 @@ Spring Boot is overkill for a CRUD content API. The rest of the homelab services
 ## Scope
 
 ### Keep (port 1:1)
-- All 10 REST endpoints (same request/response shapes)
-- Postgres connection to existing `petedillo_blog` database
-- Same schema — Flyway migrations become raw SQL init scripts
+- All REST endpoints (same request/response shapes)
+- Postgres connection to `petedillo_blog` database
 - Slug generation logic
 - Tag resolution (find-or-create, normalize to lowercase)
 - View count increment on slug lookup
-- Pagination (Spring Data Page-compatible response shape)
 - Search (ILIKE on title, content, tag names)
 - Environment headers (X-Environment, X-API-Version)
 - Health endpoint with DB connectivity check
@@ -37,15 +35,17 @@ Spring Boot is overkill for a CRUD content API. The rest of the homelab services
 - Lombok
 - H2 test database (use Postgres or bun:sqlite for tests)
 - Maven build system (pom.xml, .mvn/)
-- `admin_users` table code (V9 migration stays in DB, no code needed)
-- `refresh_tokens` table code (V10 migration stays in DB, no code needed)
-- `blog_media` table code (V3 migration stays in DB, no code references it)
+- All legacy table code (admin_users, refresh_tokens, blog_media, blog_tags)
 
 ### Add
 - Pino structured logging (match notification-service)
 - prom-client Prometheus metrics at `/metrics`
 - Zod v4 request validation
 - `/health/live` and `/health/ready` K8s probes
+- `UNLISTED` post status — accessible via direct slug URL but excluded from feeds/search/tags
+- `source` field on posts — tracks who created the post (`seed`, `blog-agent`, `manual`)
+- Blog-agent integration: auto-publish config flag for graduating from human review to autonomous
+- Admin endpoints designed as the primary blog-agent write interface
 
 ---
 
@@ -75,26 +75,73 @@ The API has ~10 queries total. Prisma/Drizzle add build complexity and schema fi
 
 ## Endpoint Map
 
-### Public (no auth)
+### Public (no auth — exposed through Cloudflare tunnel)
 
-| Method | Path | Spring Source | Notes |
-|--------|------|---------------|-------|
-| GET | `/api/v1/posts` | BlogController | Paginated, PUBLISHED only |
-| GET | `/api/v1/posts/:slug` | BlogController | Increments view_count |
-| GET | `/api/v1/search` | SearchController | `?q=` required, ILIKE on title/content/tags |
-| GET | `/api/v1/health` | InfoController | DB status, post count, version |
-| GET | `/api/v1/info` | InfoController | API metadata, tag list, recent post date |
+| Method | Path | Notes |
+|--------|------|-------|
+| GET | `/api/v1/posts` | Paginated, PUBLISHED only (excludes DRAFT, UNLISTED, ARCHIVED) |
+| GET | `/api/v1/posts/:slug` | Returns PUBLISHED or UNLISTED posts, increments view_count |
+| GET | `/api/v1/search` | `?q=` required, ILIKE on title/content/tags, PUBLISHED only |
+| GET | `/api/v1/health` | DB status, post count, version |
+| GET | `/api/v1/info` | API metadata, tag list, recent post date |
 
-### Admin (consumed by blog-agent, no human UI)
+### Admin (consumed by blog-agent + admin UI, network-gated at nginx layer)
 
-| Method | Path | Spring Source | Notes |
-|--------|------|---------------|-------|
-| POST | `/api/v1/admin/posts` | AdminController | Create post, auto-slug, resolve tags |
-| GET | `/api/v1/admin/posts` | AdminController | All statuses, `?status=` `?search=` filters |
-| GET | `/api/v1/admin/posts/:id` | AdminController | Get by numeric ID |
-| PUT | `/api/v1/admin/posts/:id` | AdminController | Update (no slug regen) |
-| DELETE | `/api/v1/admin/posts/:id` | AdminController | 204 No Content, cascade via FK |
-| GET | `/api/v1/admin/tags` | AdminController | Ordered by post_count DESC |
+| Method | Path | Notes |
+|--------|------|-------|
+| POST | `/api/v1/admin/posts` | Create post — blog-agent or manual. Accepts `source` field |
+| GET | `/api/v1/admin/posts` | All statuses, `?status=` `?search=` `?source=` filters |
+| GET | `/api/v1/admin/posts/:id` | Get by numeric ID (any status) |
+| PUT | `/api/v1/admin/posts/:id` | Update post (status, content, tags — no slug regen) |
+| DELETE | `/api/v1/admin/posts/:id` | 204 No Content, cascade via FK |
+| POST | `/api/v1/admin/posts/:id/publish` | Shortcut: sets status → PUBLISHED, publishedAt → now |
+| GET | `/api/v1/admin/tags` | Ordered by post_count DESC |
+
+### Post Statuses
+
+| Status | Visible in feeds/search | Accessible by slug | Who creates it |
+|--------|------------------------|-------------------|---------------|
+| `DRAFT` | No | No (admin only) | Blog-agent (default), manual |
+| `UNLISTED` | No | Yes (direct link) | Manual — for posts you want shareable but not in feeds |
+| `PUBLISHED` | Yes | Yes | Human review or blog-agent auto-publish |
+| `ARCHIVED` | No | No | Manual — soft delete |
+
+### Blog-Agent Integration
+
+Blog-agent is the primary writer. The API is designed around this flow:
+
+```
+Blog-Agent              Blog API            Notif Service       Discord (DM)        Human
+    │                       │                    │                   │                │
+    ├─ POST /admin/posts ──►│ saves as DRAFT     │                   │                │
+    │  { source:            │                    │                   │                │
+    │    "blog-agent" }     │                    │                   │                │
+    │                       │                    │                   │                │
+    ├─ POST /events ────────┼───────────────────►│                   │                │
+    │  { type: "draft",     │                    ├─ SSE broadcast ──►│                │
+    │    message: "Draft:   │                    │                   │ Pete Bot DMs:  │
+    │    'Post Title'" }    │                    │                   │ "Draft ready:  │
+    │                       │                    │                   │  Post Title    │
+    │                       │                    │                   │  Review at:    │
+    │                       │                    │                   │  192.168.50.   │
+    │                       │                    │                   │  241/admin/    │
+    │                       │                    │                   │  drafts/42"  ──►│
+    │                       │                    │                   │                │
+    │                       │◄───────────────────┼───────────────────┼── reviews at   │
+    │                       │  POST /admin/      │                   │   MetalLB IP   │
+    │                       │  posts/:id/publish │                   │                │
+    │                       │                    │                   │                │
+    │ (OR if auto_publish)  │                    │                   │                │
+    ├─ POST /admin/posts ──►│ saves as PUBLISHED │                   │                │
+    │  { status:            │ (skips review)     │                   │                │
+    │    "PUBLISHED" }      │                    │                   │                │
+```
+
+**Auto-publish graduation**: Blog-agent decides the status it sends based on its own config:
+- `AUTO_PUBLISH=false` (default) → always sends `status: DRAFT` → human reviews
+- `AUTO_PUBLISH=true` (graduated) → sends `status: PUBLISHED` → goes live immediately
+
+The API doesn't enforce the review flow — it trusts the caller. The review gate lives in blog-agent's config, not the API. This keeps the API simple and lets blog-agent graduate independently.
 
 ### Infrastructure
 
@@ -194,6 +241,7 @@ Simple pagination — no Spring Data compatibility needed (UI is being rewritten
   "content": "## Markdown content here...",
   "excerpt": "A quick guide to MetalLB on MicroK8s",
   "status": "PUBLISHED",
+  "source": "blog-agent",
   "isFeatured": false,
   "viewCount": 12,
   "createdAt": "2026-03-20T12:00:00Z",
@@ -234,12 +282,12 @@ For each tag name in request:
 ### 3. View Count Increment
 ```
 On GET /api/v1/posts/:slug:
-  1. Fetch post (PUBLISHED only)
+  1. Fetch post (PUBLISHED or UNLISTED)
   2. UPDATE blog_posts SET view_count = view_count + 1 WHERE id = $id
-  3. Return post (with pre-increment count is fine — Spring did the same)
+  3. Return post
 ```
 
-### 4. Search Query
+### 4. Search Query (PUBLISHED only — excludes UNLISTED)
 ```sql
 SELECT DISTINCT p.* FROM blog_posts p
 LEFT JOIN post_tags pt ON p.id = pt.post_id
@@ -248,6 +296,16 @@ WHERE p.status = 'PUBLISHED'
   AND (LOWER(p.title) LIKE $1 OR LOWER(p.content) LIKE $1 OR LOWER(t.name) LIKE $1)
 ORDER BY p.published_at DESC NULLS LAST
 LIMIT $2 OFFSET $3
+```
+
+### 5. Post Source Tracking
+```
+On POST /api/v1/admin/posts:
+  - source field: 'seed' | 'blog-agent' | 'manual'
+  - Blog-agent always sends source: 'blog-agent'
+  - Seed runner sets source: 'seed'
+  - Admin UI sets source: 'manual'
+  - Admin list filterable by ?source= for review workflows
 ```
 
 ---
@@ -275,6 +333,9 @@ const config = {
   log: {
     level: process.env.LOG_LEVEL || 'info',
   },
+
+  // Used by blog-agent notification links — the internal URL for draft review
+  internalUrl: process.env.INTERNAL_URL || 'http://192.168.50.241',
 };
 ```
 
