@@ -40,8 +40,8 @@ describe('Info Routes', () => {
     const res = await request(app).get('/api/v1/info');
     expect(res.status).toBe(200);
     expect(res.body.name).toBe('blog-api');
-    expect(res.body.tags).toContain('kubernetes');
-    expect(res.body.tags).toContain('homelab');
+    expect(res.body.tags).toContainEqual(expect.objectContaining({ slug: 'kubernetes', name: 'kubernetes' }));
+    expect(res.body.tags).toContainEqual(expect.objectContaining({ slug: 'homelab', name: 'homelab' }));
     expect(res.body.mostRecentPostDate).toBeTruthy();
   });
 });
