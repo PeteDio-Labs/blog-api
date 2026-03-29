@@ -20,4 +20,8 @@ export const config = {
   },
 
   internalUrl: process.env.INTERNAL_URL || 'http://192.168.50.241',
+
+  ollama: {
+    url: process.env.OLLAMA_URL || 'http://192.168.50.59:11434',
+  },
 } as const;

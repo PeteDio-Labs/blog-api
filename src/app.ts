@@ -8,6 +8,7 @@ import { logger } from './utils/logger.ts';
 import { config } from './config.ts';
 import { createRoutes } from './api/routes/index.ts';
 import { PostService } from './services/posts.ts';
+import { RagService } from './services/ragService.ts';
 import { httpRequestsTotal, httpRequestDuration } from './metrics/index.ts';
 
 export function createApp(pool: Pool): Application {
@@ -58,8 +59,9 @@ export function createApp(pool: Pool): Application {
   });
 
   // Routes
-  const postService = new PostService(pool);
-  app.use(createRoutes(pool, postService));
+  const ragService = new RagService(pool);
+  const postService = new PostService(pool, ragService);
+  app.use(createRoutes(pool, postService, ragService));
 
   // 404
   app.use((req: Request, res: Response) => {

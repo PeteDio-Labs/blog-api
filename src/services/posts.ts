@@ -7,6 +7,8 @@ import type {
   CreatePostInput,
   UpdatePostInput,
 } from '../types.ts';
+import type { RagService } from './ragService.ts';
+import { logger } from '../utils/logger.ts';
 
 function generateSlug(title: string): string {
   return title
@@ -44,7 +46,10 @@ function mapPost(row: PostRow, tags: TagResponse[]): PostResponse {
 }
 
 export class PostService {
-  constructor(private pool: Pool) {}
+  constructor(
+    private pool: Pool,
+    private ragService?: RagService,
+  ) {}
 
   private async getTagsForPost(postId: number): Promise<TagResponse[]> {
     const { rows } = await this.pool.query<TagRow>(
@@ -319,7 +324,20 @@ export class PostService {
     }
 
     const tags = await this.getTagsForPost(post.id);
-    return mapPost(post, tags);
+    const result = mapPost(post, tags);
+
+    // Fire-and-forget RAG ingest — never blocks the response
+    if (this.ragService) {
+      const textToIngest = [input.title, input.content].filter(Boolean).join('\n\n');
+      this.ragService.ingest({
+        postId: post.id,
+        text: textToIngest,
+        sourceType: 'post',
+        sourceRef: result.slug,
+      }).catch((err) => logger.warn(`Auto-ingest failed for post ${post.id}: ${err instanceof Error ? err.message : String(err)}`));
+    }
+
+    return result;
   }
 
   async update(id: number, input: UpdatePostInput): Promise<PostResponse | null> {
