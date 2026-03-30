@@ -118,7 +118,8 @@ export class RagService {
     const params: unknown[] = [vectorLiteral, topK];
     if (sourceTypes && sourceTypes.length > 0) params.push(sourceTypes);
 
-    const { rows } = await this.pool.query<{
+    const client = await this.pool.connect();
+    let rows: Array<{
       id: number;
       post_id: number | null;
       source_type: string;
@@ -126,15 +127,23 @@ export class RagService {
       chunk_index: number;
       chunk_text: string;
       similarity: number;
-    }>(
-      `SELECT id, post_id, source_type, source_ref, chunk_index, chunk_text,
-              1 - (embedding <=> $1::vector) AS similarity
-       FROM embeddings
-       WHERE embedding IS NOT NULL ${sourceFilter}
-       ORDER BY embedding <=> $1::vector
-       LIMIT $2`,
-      params,
-    );
+    }>;
+    try {
+      // Increase ivfflat probes so queries work with small datasets
+      await client.query('SET LOCAL ivfflat.probes = 10');
+      const result = await client.query<typeof rows[0]>(
+        `SELECT id, post_id, source_type, source_ref, chunk_index, chunk_text,
+                1 - (embedding <=> $1::vector) AS similarity
+         FROM embeddings
+         WHERE embedding IS NOT NULL ${sourceFilter}
+         ORDER BY embedding <=> $1::vector
+         LIMIT $2`,
+        params,
+      );
+      rows = result.rows;
+    } finally {
+      client.release();
+    }
 
     return rows.map((r) => ({
       id: r.id,
