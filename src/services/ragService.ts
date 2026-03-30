@@ -129,8 +129,6 @@ export class RagService {
       similarity: number;
     }>;
     try {
-      // Increase ivfflat probes so queries work with small datasets
-      await client.query('SET ivfflat.probes = 10');
       const result = await client.query<typeof rows[0]>(
         `SELECT id, post_id, source_type, source_ref, chunk_index, chunk_text,
                 1 - (embedding <=> $1::vector) AS similarity
