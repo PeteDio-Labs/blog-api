@@ -30,6 +30,13 @@ export const postViewsTotal = new Counter({
   registers: [register],
 });
 
+export const pageviewsTotal = new Counter({
+  name: 'blog_pageviews_total',
+  help: 'Total anonymous pageviews from analytics pipeline',
+  labelNames: ['path'] as const,
+  registers: [register],
+});
+
 export async function getMetrics(): Promise<string> {
   return register.metrics();
 }
