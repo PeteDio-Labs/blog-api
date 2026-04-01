@@ -27,7 +27,7 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Set up Bun
-        uses: oven-sh/setup-bun@v2
+        uses: oven-sh/setup-bun@v3
 
       - name: Install dependencies
         run: bun install --frozen-lockfile
@@ -61,7 +61,7 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Set up Bun
-        uses: oven-sh/setup-bun@v2
+        uses: oven-sh/setup-bun@v3
 
       - name: Install dependencies
         run: bun install --frozen-lockfile
@@ -93,7 +93,7 @@ jobs:
           password: ${{ secrets.NEXUS_PASSWORD }}
 
       - name: Build and push Docker image
-        uses: docker/build-push-action@v5
+        uses: docker/build-push-action@v6
         with:
           context: .
           push: true
