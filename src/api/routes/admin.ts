@@ -1,9 +1,11 @@
 import { Router } from 'express';
+import type { Pool } from 'pg';
 import type { PostService } from '../../services/posts.ts';
 import { CreatePostSchema, UpdatePostSchema } from '../../types.ts';
 import { parsePagination, paginate } from '../../utils/pagination.ts';
+import { logger } from '../../utils/logger.ts';
 
-export function createAdminRouter(postService: PostService): Router {
+export function createAdminRouter(postService: PostService, pool: Pool): Router {
   const router = Router();
 
   // POST /api/v1/admin/posts — create
@@ -102,6 +104,75 @@ export function createAdminRouter(postService: PostService): Router {
   router.get('/tags', async (_req, res) => {
     const tags = await postService.listTags();
     res.json(tags);
+  });
+
+  // GET /api/v1/admin/analytics — aggregated analytics data
+  router.get('/analytics', async (req, res) => {
+    try {
+      const days = Math.min(Number(req.query.days) || 30, 90);
+
+      // Top pages — all time
+      const topPagesAll = await pool.query(
+        `SELECT path, COUNT(*) as views
+         FROM analytics_events
+         GROUP BY path
+         ORDER BY views DESC
+         LIMIT 10`,
+      );
+
+      // Top pages — last 7 days
+      const topPages7d = await pool.query(
+        `SELECT path, COUNT(*) as views
+         FROM analytics_events
+         WHERE created_at >= NOW() - INTERVAL '7 days'
+         GROUP BY path
+         ORDER BY views DESC
+         LIMIT 10`,
+      );
+
+      // Top referrers
+      const topReferrers = await pool.query(
+        `SELECT referrer, COUNT(*) as views
+         FROM analytics_events
+         WHERE referrer IS NOT NULL AND referrer != ''
+         GROUP BY referrer
+         ORDER BY views DESC
+         LIMIT 10`,
+      );
+
+      // Daily trend
+      const dailyTrend = await pool.query(
+        `SELECT DATE(created_at) as date, COUNT(*) as views
+         FROM analytics_events
+         WHERE created_at >= NOW() - INTERVAL '${days} days'
+         GROUP BY DATE(created_at)
+         ORDER BY date ASC`,
+      );
+
+      // Unique sessions count
+      const uniqueSessions = await pool.query(
+        `SELECT COUNT(DISTINCT session_id) as count FROM analytics_events`,
+      );
+
+      // Total pageviews
+      const totalPageviews = await pool.query(
+        `SELECT COUNT(*) as count FROM analytics_events`,
+      );
+
+      res.json({
+        totalPageviews: Number(totalPageviews.rows[0]?.count || 0),
+        uniqueSessions: Number(uniqueSessions.rows[0]?.count || 0),
+        topPages: {
+          allTime: topPagesAll.rows.map(r => ({ path: r.path, views: Number(r.views) })),
+          last7Days: topPages7d.rows.map(r => ({ path: r.path, views: Number(r.views) })),
+        },
+        topReferrers: topReferrers.rows.map(r => ({ referrer: r.referrer, views: Number(r.views) })),
+        dailyTrend: dailyTrend.rows.map(r => ({ date: r.date, views: Number(r.views) })),
+      });
+    } catch (err) {
+      logger.error('Failed to fetch analytics', { error: (err as Error).message });
+      res.status(500).json({ error: 'Failed to fetch analytics' });
+    }
   });
 
   return router;
