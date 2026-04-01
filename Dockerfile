@@ -6,10 +6,15 @@ COPY tsconfig.json ./
 COPY src/ src/
 RUN bun build src/index.ts --outdir dist --target node
 
+FROM oven/bun:1-alpine AS deps
+WORKDIR /app
+COPY package.json bun.lock ./
+RUN bun install --production --frozen-lockfile
+
 FROM oven/bun:1-alpine
 WORKDIR /app
 COPY --from=builder /app/dist/ dist/
-COPY --from=builder /app/node_modules/ node_modules/
+COPY --from=deps /app/node_modules/ node_modules/
 COPY --from=builder /app/package.json ./
 COPY src/db/migrations/ dist/db/migrations/
 COPY seed-posts/ seed-posts/
