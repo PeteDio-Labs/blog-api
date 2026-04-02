@@ -38,6 +38,7 @@ function mapPost(row: PostRow, tags: TagResponse[]): PostResponse {
     source: row.source,
     isFeatured: row.is_featured,
     viewCount: row.view_count,
+    coverImageUrl: row.cover_image_url,
     createdAt: row.created_at.toISOString(),
     updatedAt: row.updated_at.toISOString(),
     publishedAt: row.published_at?.toISOString() ?? null,
@@ -377,6 +378,10 @@ export class PostService {
     if (input.isFeatured !== undefined) {
       sets.push(`is_featured = $${paramIdx++}`);
       params.push(input.isFeatured);
+    }
+    if (input.coverImageUrl !== undefined) {
+      sets.push(`cover_image_url = $${paramIdx++}`);
+      params.push(input.coverImageUrl);
     }
 
     if (sets.length > 0) {

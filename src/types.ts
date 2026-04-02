@@ -24,6 +24,7 @@ export const UpdatePostSchema = z.object({
   status: PostStatus.optional(),
   isFeatured: z.boolean().optional(),
   tags: z.array(z.string()).optional(),
+  coverImageUrl: z.string().url().nullable().optional(),
 });
 export type UpdatePostInput = z.infer<typeof UpdatePostSchema>;
 
@@ -51,6 +52,7 @@ export interface PostRow {
   source: string;
   is_featured: boolean;
   view_count: number;
+  cover_image_url: string | null;
   created_at: Date;
   updated_at: Date;
   published_at: Date | null;
@@ -66,6 +68,7 @@ export interface PostResponse {
   source: string;
   isFeatured: boolean;
   viewCount: number;
+  coverImageUrl: string | null;
   createdAt: string;
   updatedAt: string;
   publishedAt: string | null;
