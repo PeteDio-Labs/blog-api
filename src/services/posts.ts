@@ -415,7 +415,17 @@ export class PostService {
   }
 
   async publish(id: number): Promise<PostResponse | null> {
-    return this.update(id, { status: 'PUBLISHED' });
+    const result = await this.update(id, { status: 'PUBLISHED' });
+    if (result && this.ragService) {
+      const textToIngest = [result.title, result.content].filter(Boolean).join('\n\n');
+      this.ragService.ingest({
+        postId: id,
+        text: textToIngest,
+        sourceType: 'post',
+        sourceRef: result.slug,
+      }).catch((err) => logger.warn(`Auto-ingest on publish failed for post ${id}: ${err instanceof Error ? err.message : String(err)}`));
+    }
+    return result;
   }
 
   async listTags(): Promise<TagResponse[]> {

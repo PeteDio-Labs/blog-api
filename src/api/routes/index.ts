@@ -21,7 +21,7 @@ export function createRoutes(pool: Pool, postService: PostService, ragService: R
   apiV1.use('/posts', createPostsRouter(postService));
   apiV1.use('/search', createSearchRouter(postService));
   apiV1.use('/admin', createAdminRouter(postService, pool));
-  apiV1.use('/rag', createRagRouter(ragService));
+  apiV1.use('/rag', createRagRouter(ragService, postService));
   apiV1.use('/analytics', createAnalyticsRouter(pool));
   apiV1.use(createInfoRouter(postService));
 
