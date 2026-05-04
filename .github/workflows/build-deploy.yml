@@ -14,7 +14,7 @@ permissions:
   pull-requests: write
 
 env:
-  NEXUS_REGISTRY: docker.toastedbytes.com
+  NEXUS_REGISTRY: docker.pdlab.dev
 
 jobs:
   # PR builds: Typecheck, test, validate Docker build
