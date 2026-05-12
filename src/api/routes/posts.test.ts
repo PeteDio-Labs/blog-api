@@ -16,9 +16,11 @@ const samplePost = {
   source: 'manual',
   is_featured: false,
   view_count: 5,
+  cover_image_url: null,
   created_at: now,
   updated_at: now,
   published_at: now,
+  read_time_minutes: 1,
 };
 
 function postsQueryHandler(text: string, params?: unknown[]): QueryResultRow[] {

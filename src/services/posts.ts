@@ -2,6 +2,8 @@ import type { Pool } from 'pg';
 import type {
   PostRow,
   PostResponse,
+  PostSummaryRow,
+  PostSummaryResponse,
   TagRow,
   TagResponse,
   CreatePostInput,
@@ -9,6 +11,16 @@ import type {
 } from '../types.ts';
 import type { RagService } from './ragService.ts';
 import { logger } from '../utils/logger.ts';
+
+// Columns selected for list endpoints. `content` (TEXT, can be tens of KB
+// per row) is deliberately excluded — list views only need metadata. We
+// derive a coarse read-time from the stored character length so the heavy
+// column never leaves Postgres for list responses.
+const POST_SUMMARY_COLUMNS = `
+  id, title, slug, excerpt, status, source, is_featured, view_count,
+  cover_image_url, created_at, updated_at, published_at,
+  GREATEST(1, CEIL(LENGTH(content)::float / 1000))::int AS read_time_minutes
+`;
 
 function generateSlug(title: string): string {
   return title
@@ -42,6 +54,28 @@ function mapPost(row: PostRow, tags: TagResponse[]): PostResponse {
     createdAt: row.created_at.toISOString(),
     updatedAt: row.updated_at.toISOString(),
     publishedAt: row.published_at?.toISOString() ?? null,
+    tags,
+  };
+}
+
+function mapPostSummary(
+  row: PostSummaryRow,
+  tags: TagResponse[],
+): PostSummaryResponse {
+  return {
+    id: row.id,
+    title: row.title,
+    slug: row.slug,
+    excerpt: row.excerpt,
+    status: row.status,
+    source: row.source,
+    isFeatured: row.is_featured,
+    viewCount: row.view_count,
+    coverImageUrl: row.cover_image_url,
+    createdAt: row.created_at.toISOString(),
+    updatedAt: row.updated_at.toISOString(),
+    publishedAt: row.published_at?.toISOString() ?? null,
+    readTimeMinutes: row.read_time_minutes,
     tags,
   };
 }
@@ -134,21 +168,24 @@ export class PostService {
     _page: number,
     size: number,
     offset: number,
-  ): Promise<{ posts: PostResponse[]; total: number }> {
-    const countResult = await this.pool.query<{ count: string }>(
-      "SELECT COUNT(*) as count FROM blog_posts WHERE status = 'PUBLISHED'",
-    );
+  ): Promise<{ posts: PostSummaryResponse[]; total: number }> {
+    const [countResult, pageResult] = await Promise.all([
+      this.pool.query<{ count: string }>(
+        "SELECT COUNT(*) as count FROM blog_posts WHERE status = 'PUBLISHED'",
+      ),
+      this.pool.query<PostSummaryRow>(
+        `SELECT ${POST_SUMMARY_COLUMNS}
+         FROM blog_posts WHERE status = 'PUBLISHED'
+         ORDER BY published_at DESC NULLS LAST
+         LIMIT $1 OFFSET $2`,
+        [size, offset],
+      ),
+    ]);
+
     const total = Number(countResult.rows[0]?.count ?? 0);
-
-    const { rows } = await this.pool.query<PostRow>(
-      `SELECT * FROM blog_posts WHERE status = 'PUBLISHED'
-       ORDER BY published_at DESC NULLS LAST
-       LIMIT $1 OFFSET $2`,
-      [size, offset],
-    );
-
+    const rows = pageResult.rows;
     const tagsMap = await this.getTagsForPosts(rows.map((r) => r.id));
-    const posts = rows.map((r) => mapPost(r, tagsMap.get(r.id) ?? []));
+    const posts = rows.map((r) => mapPostSummary(r, tagsMap.get(r.id) ?? []));
 
     return { posts, total };
   }
@@ -158,28 +195,31 @@ export class PostService {
     _page: number,
     size: number,
     offset: number,
-  ): Promise<{ posts: PostResponse[]; total: number }> {
-    const countResult = await this.pool.query<{ count: string }>(
-      `SELECT COUNT(DISTINCT p.id) as count FROM blog_posts p
-       JOIN post_tags pt ON p.id = pt.post_id
-       JOIN tags t ON pt.tag_id = t.id
-       WHERE p.status = 'PUBLISHED' AND t.slug = $1`,
-      [tagSlug],
-    );
+  ): Promise<{ posts: PostSummaryResponse[]; total: number }> {
+    const [countResult, pageResult] = await Promise.all([
+      this.pool.query<{ count: string }>(
+        `SELECT COUNT(DISTINCT p.id) as count FROM blog_posts p
+         JOIN post_tags pt ON p.id = pt.post_id
+         JOIN tags t ON pt.tag_id = t.id
+         WHERE p.status = 'PUBLISHED' AND t.slug = $1`,
+        [tagSlug],
+      ),
+      this.pool.query<PostSummaryRow>(
+        `SELECT ${POST_SUMMARY_COLUMNS}
+         FROM blog_posts p
+         JOIN post_tags pt ON p.id = pt.post_id
+         JOIN tags t ON pt.tag_id = t.id
+         WHERE p.status = 'PUBLISHED' AND t.slug = $1
+         ORDER BY p.published_at DESC NULLS LAST
+         LIMIT $2 OFFSET $3`,
+        [tagSlug, size, offset],
+      ),
+    ]);
+
     const total = Number(countResult.rows[0]?.count ?? 0);
-
-    const { rows } = await this.pool.query<PostRow>(
-      `SELECT p.* FROM blog_posts p
-       JOIN post_tags pt ON p.id = pt.post_id
-       JOIN tags t ON pt.tag_id = t.id
-       WHERE p.status = 'PUBLISHED' AND t.slug = $1
-       ORDER BY p.published_at DESC NULLS LAST
-       LIMIT $2 OFFSET $3`,
-      [tagSlug, size, offset],
-    );
-
+    const rows = pageResult.rows;
     const tagsMap = await this.getTagsForPosts(rows.map((r) => r.id));
-    const posts = rows.map((r) => mapPost(r, tagsMap.get(r.id) ?? []));
+    const posts = rows.map((r) => mapPostSummary(r, tagsMap.get(r.id) ?? []));
 
     return { posts, total };
   }
@@ -192,10 +232,14 @@ export class PostService {
     if (rows.length === 0) return null;
 
     const post = rows[0]!;
-    // Increment view count
-    await this.pool.query(
-      'UPDATE blog_posts SET view_count = view_count + 1 WHERE id = $1',
-      [post.id],
+    // Fire-and-forget view-count increment so the read isn't blocked
+    // on a write round-trip. UI never sees the +1 anyway.
+    Promise.resolve(
+      this.pool.query('UPDATE blog_posts SET view_count = view_count + 1 WHERE id = $1', [post.id]),
+    ).catch((err) =>
+      logger.warn(
+        `view_count increment failed for ${slug}: ${err instanceof Error ? err.message : String(err)}`,
+      ),
     );
     post.view_count += 1;
 
@@ -208,32 +252,35 @@ export class PostService {
     _page: number,
     size: number,
     offset: number,
-  ): Promise<{ posts: PostResponse[]; total: number }> {
+  ): Promise<{ posts: PostSummaryResponse[]; total: number }> {
     const pattern = `%${query.toLowerCase()}%`;
 
-    const countResult = await this.pool.query<{ count: string }>(
-      `SELECT COUNT(DISTINCT p.id) as count FROM blog_posts p
-       LEFT JOIN post_tags pt ON p.id = pt.post_id
-       LEFT JOIN tags t ON pt.tag_id = t.id
-       WHERE p.status = 'PUBLISHED'
-         AND (LOWER(p.title) LIKE $1 OR LOWER(p.content) LIKE $1 OR LOWER(t.name) LIKE $1)`,
-      [pattern],
-    );
+    const [countResult, pageResult] = await Promise.all([
+      this.pool.query<{ count: string }>(
+        `SELECT COUNT(DISTINCT p.id) as count FROM blog_posts p
+         LEFT JOIN post_tags pt ON p.id = pt.post_id
+         LEFT JOIN tags t ON pt.tag_id = t.id
+         WHERE p.status = 'PUBLISHED'
+           AND (LOWER(p.title) LIKE $1 OR LOWER(p.content) LIKE $1 OR LOWER(t.name) LIKE $1)`,
+        [pattern],
+      ),
+      this.pool.query<PostSummaryRow>(
+        `SELECT DISTINCT ${POST_SUMMARY_COLUMNS}
+         FROM blog_posts p
+         LEFT JOIN post_tags pt ON p.id = pt.post_id
+         LEFT JOIN tags t ON pt.tag_id = t.id
+         WHERE p.status = 'PUBLISHED'
+           AND (LOWER(p.title) LIKE $1 OR LOWER(p.content) LIKE $1 OR LOWER(t.name) LIKE $1)
+         ORDER BY p.published_at DESC NULLS LAST
+         LIMIT $2 OFFSET $3`,
+        [pattern, size, offset],
+      ),
+    ]);
+
     const total = Number(countResult.rows[0]?.count ?? 0);
-
-    const { rows } = await this.pool.query<PostRow>(
-      `SELECT DISTINCT p.* FROM blog_posts p
-       LEFT JOIN post_tags pt ON p.id = pt.post_id
-       LEFT JOIN tags t ON pt.tag_id = t.id
-       WHERE p.status = 'PUBLISHED'
-         AND (LOWER(p.title) LIKE $1 OR LOWER(p.content) LIKE $1 OR LOWER(t.name) LIKE $1)
-       ORDER BY p.published_at DESC NULLS LAST
-       LIMIT $2 OFFSET $3`,
-      [pattern, size, offset],
-    );
-
+    const rows = pageResult.rows;
     const tagsMap = await this.getTagsForPosts(rows.map((r) => r.id));
-    const posts = rows.map((r) => mapPost(r, tagsMap.get(r.id) ?? []));
+    const posts = rows.map((r) => mapPostSummary(r, tagsMap.get(r.id) ?? []));
 
     return { posts, total };
   }
@@ -247,7 +294,7 @@ export class PostService {
     page: number;
     size: number;
     offset: number;
-  }): Promise<{ posts: PostResponse[]; total: number }> {
+  }): Promise<{ posts: PostSummaryResponse[]; total: number }> {
     const conditions: string[] = [];
     const params: unknown[] = [];
     let paramIdx = 1;
@@ -268,21 +315,24 @@ export class PostService {
 
     const where = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
 
-    const countResult = await this.pool.query<{ count: string }>(
-      `SELECT COUNT(*) as count FROM blog_posts ${where}`,
-      params,
-    );
+    const [countResult, pageResult] = await Promise.all([
+      this.pool.query<{ count: string }>(
+        `SELECT COUNT(*) as count FROM blog_posts ${where}`,
+        params,
+      ),
+      this.pool.query<PostSummaryRow>(
+        `SELECT ${POST_SUMMARY_COLUMNS}
+         FROM blog_posts ${where}
+         ORDER BY created_at DESC
+         LIMIT $${paramIdx} OFFSET $${paramIdx + 1}`,
+        [...params, filters.size, filters.offset],
+      ),
+    ]);
+
     const total = Number(countResult.rows[0]?.count ?? 0);
-
-    const { rows } = await this.pool.query<PostRow>(
-      `SELECT * FROM blog_posts ${where}
-       ORDER BY created_at DESC
-       LIMIT $${paramIdx} OFFSET $${paramIdx + 1}`,
-      [...params, filters.size, filters.offset],
-    );
-
+    const rows = pageResult.rows;
     const tagsMap = await this.getTagsForPosts(rows.map((r) => r.id));
-    const posts = rows.map((r) => mapPost(r, tagsMap.get(r.id) ?? []));
+    const posts = rows.map((r) => mapPostSummary(r, tagsMap.get(r.id) ?? []));
 
     return { posts, total };
   }

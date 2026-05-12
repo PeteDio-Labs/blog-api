@@ -46,11 +46,24 @@ export function createRagRouter(ragService: RagService, postService: PostService
   // One-shot backfill: re-ingests all PUBLISHED posts into the vector store.
   // Safe to call multiple times — ingest() deletes existing chunks before re-inserting.
   router.post('/ingest-all-posts', async (_req, res) => {
-    const { posts } = await postService.listAll({ status: 'PUBLISHED', page: 1, size: 500, offset: 0 });
+    // listAll returns lightweight summaries (no `content`). For ingest we
+    // need the full body, so fetch each by id. This is a one-shot backfill
+    // so the extra N round-trips are acceptable.
+    const { posts: summaries } = await postService.listAll({
+      status: 'PUBLISHED',
+      page: 1,
+      size: 500,
+      offset: 0,
+    });
     let ingested = 0;
     let failed = 0;
-    for (const post of posts) {
+    for (const summary of summaries) {
       try {
+        const post = await postService.getById(summary.id);
+        if (!post) {
+          failed++;
+          continue;
+        }
         const text = [post.title, post.content].filter(Boolean).join('\n\n');
         await ragService.ingest({
           postId: post.id,
@@ -63,7 +76,7 @@ export function createRagRouter(ragService: RagService, postService: PostService
         failed++;
       }
     }
-    res.json({ ingested, failed, total: posts.length });
+    res.json({ ingested, failed, total: summaries.length });
   });
 
   return router;

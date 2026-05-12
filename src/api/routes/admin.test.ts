@@ -16,9 +16,11 @@ const samplePost = {
   source: 'manual',
   is_featured: false,
   view_count: 0,
+  cover_image_url: null,
   created_at: now,
   updated_at: now,
   published_at: null,
+  read_time_minutes: 1,
 };
 
 function adminQueryHandler(text: string, params?: unknown[]): QueryResultRow[] {

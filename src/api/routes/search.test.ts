@@ -11,21 +11,22 @@ function searchQueryHandler(text: string): QueryResultRow[] {
 
   if (text.includes('COUNT(DISTINCT')) return [{ count: '1' }];
 
-  if (text.includes('DISTINCT p.*') && text.includes('LIKE')) {
+  if (text.includes('FROM blog_posts p') && text.includes('LIKE') && text.includes('LIMIT')) {
     return [
       {
         id: 1,
         title: 'Kubernetes Guide',
         slug: 'kubernetes-guide',
-        content: '## K8s',
         excerpt: 'A guide',
         status: 'PUBLISHED',
         source: 'manual',
         is_featured: false,
         view_count: 3,
+        cover_image_url: null,
         created_at: now,
         updated_at: now,
         published_at: now,
+        read_time_minutes: 1,
       },
     ];
   }

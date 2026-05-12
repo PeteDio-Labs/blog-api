@@ -74,3 +74,38 @@ export interface PostResponse {
   publishedAt: string | null;
   tags: TagResponse[];
 }
+
+// Lightweight projection used by list endpoints — omits `content`
+// (the heavy TEXT column) and adds a precomputed `readTimeMinutes`.
+export interface PostSummaryRow {
+  id: number;
+  title: string;
+  slug: string;
+  excerpt: string | null;
+  status: string;
+  source: string;
+  is_featured: boolean;
+  view_count: number;
+  cover_image_url: string | null;
+  created_at: Date;
+  updated_at: Date;
+  published_at: Date | null;
+  read_time_minutes: number;
+}
+
+export interface PostSummaryResponse {
+  id: number;
+  title: string;
+  slug: string;
+  excerpt: string | null;
+  status: string;
+  source: string;
+  isFeatured: boolean;
+  viewCount: number;
+  coverImageUrl: string | null;
+  createdAt: string;
+  updatedAt: string;
+  publishedAt: string | null;
+  readTimeMinutes: number;
+  tags: TagResponse[];
+}
